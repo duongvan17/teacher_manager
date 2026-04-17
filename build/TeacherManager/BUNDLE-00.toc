@@ -1,0 +1,3 @@
+([('TeacherManager',
+   '/Users/minhhoangluong/teacher_manager/dist/TeacherManager',
+   'EXECUTABLE')],)
