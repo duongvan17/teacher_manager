@@ -387,6 +387,7 @@ class TeacherManagerPro(ctk.CTk):
     def hide_all_frames(self):
         self.mgmt_frame.pack_forget()
         self.plan_frame.pack_forget()
+        self.month_frame.pack_forget()
         self.document_frame.pack_forget()
 
 
@@ -612,14 +613,16 @@ class TeacherManagerPro(ctk.CTk):
         self.setup_sidebar()
         
         self.main_container = ctk.CTkFrame(self, fg_color="transparent")
-        self.main_container.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
-        
+        self.main_container.grid(row=0, column=1, sticky="nsew", padx=16, pady=16)
+
         self.mgmt_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.plan_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        self.month_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.document_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         # 3. Setup các thành phần giao diện
         self.setup_mgmt_ui()
         self.setup_plan_ui()
+        self.setup_month_ui()
         self.setup_document_ui()
         # 4. Chạy các tính năng tự động
         self.show_mgmt_frame() # Hiện tab quản lý trước
@@ -631,27 +634,31 @@ class TeacherManagerPro(ctk.CTk):
     
        
     def setup_sidebar(self):
-        self.sidebar = ctk.CTkFrame(self, width=260, corner_radius=0, fg_color=COLORS["sidebar"])
+        self.sidebar = ctk.CTkFrame(self, width=230, corner_radius=0, fg_color=COLORS["sidebar"])
         self.sidebar.grid(row=0, column=0, sticky="nsew")
-        
-        ctk.CTkLabel(self.sidebar, text="TSQ QLGV", font=("Arial", 22, "bold"), text_color=COLORS["accent"]).pack(pady=40)
-        
+        self.sidebar.grid_propagate(False)
+
+        ctk.CTkLabel(self.sidebar, text="TSQ QLGV", font=("Arial", 20, "bold"),
+                     text_color=COLORS["accent"]).pack(pady=(28, 20))
+
         self.btn_mgmt = self.create_nav_btn("Quản lý chung", self.show_mgmt_frame)
-        self.btn_plan = self.create_nav_btn("Kế hoạch giảng", self.show_plan_frame)
-        self.btn_document = self.create_nav_btn("Tài liệu môn học", self.show_document_frame) 
-        
-        self.lbl_time = ctk.CTkLabel(self.sidebar, text="", font=("Arial", 13), text_color=COLORS["text_dim"])
-        self.lbl_time.pack(side="bottom", pady=30)
+        self.btn_plan = self.create_nav_btn("Kế hoạch ngày", self.show_plan_frame)
+        self.btn_month = self.create_nav_btn("Kế hoạch tháng", self.show_month_frame)
+        self.btn_document = self.create_nav_btn("Tài liệu môn học", self.show_document_frame)
+
+        self.lbl_time = ctk.CTkLabel(self.sidebar, text="", font=("Arial", 12),
+                                     text_color=COLORS["text_dim"])
+        self.lbl_time.pack(side="bottom", pady=20)
 
     def create_nav_btn(self, text, cmd):
-        btn = ctk.CTkButton(self.sidebar, text=text, font=("Arial", 14, "bold"), height=52,
+        btn = ctk.CTkButton(self.sidebar, text=text, font=("Arial", 13, "bold"), height=44,
                             fg_color="transparent", text_color=COLORS["text"],
                             anchor="w", hover_color=COLORS["hover"], command=cmd)
-        btn.pack(pady=5, padx=20, fill="x")
+        btn.pack(pady=3, padx=14, fill="x")
         return btn
 
     def set_active_nav(self, active_btn):
-        for b in (self.btn_mgmt, self.btn_plan, self.btn_document):
+        for b in (self.btn_mgmt, self.btn_plan, self.btn_month, self.btn_document):
             if b is active_btn:
                 b.configure(fg_color=COLORS["accent"], text_color="white",
                             hover_color="#1D4ED8")
@@ -677,47 +684,218 @@ class TeacherManagerPro(ctk.CTk):
         
     def setup_document_ui(self):
         header = ctk.CTkFrame(self.document_frame, fg_color="transparent")
-        header.pack(fill="x", pady=10)
+        header.pack(fill="x", pady=(0, 10))
 
-        ctk.CTkLabel(header, text="Tài liệu môn học", font=("Arial", 24, "bold")).pack(side="left", padx=20)
+        ctk.CTkLabel(header, text="Tài liệu môn học", font=("Arial", 20, "bold"),
+                     text_color=COLORS["text"]).pack(side="left")
 
-        ctk.CTkButton(header, text="Làm mới", command=self.render_documents).pack(side="right", padx=20)
+        ctk.CTkButton(header, text="Làm mới", width=100, height=32,
+                      fg_color=COLORS["accent"], hover_color="#1D4ED8",
+                      command=self.render_documents).pack(side="right")
 
-        self.document_scroll = ctk.CTkScrollableFrame(self.document_frame)
-        self.document_scroll.pack(fill="both", expand=True, padx=10, pady=10)
+        self.document_scroll = ctk.CTkScrollableFrame(self.document_frame,
+                                                      fg_color=COLORS["card"])
+        self.document_scroll.pack(fill="both", expand=True)
+
+    def setup_month_ui(self):
+        header = ctk.CTkFrame(self.month_frame, fg_color="transparent")
+        header.pack(fill="x", pady=(0, 10))
+
+        ctk.CTkLabel(header, text="Kế hoạch tháng", font=("Arial", 20, "bold"),
+                     text_color=COLORS["text"]).pack(side="left")
+
+        ctk.CTkButton(header, text="Làm mới", width=100, height=32,
+                      fg_color=COLORS["accent"], hover_color="#1D4ED8",
+                      command=self.render_month).pack(side="right")
+
+        ctk.CTkButton(header, text="Mở file Excel", width=120, height=32,
+                      fg_color="transparent", text_color=COLORS["text"],
+                      border_width=1, border_color=COLORS["border"],
+                      hover_color=COLORS["hover"],
+                      command=self.open_schedule_file).pack(side="right", padx=(0, 8))
+
+        self.month_info = ctk.CTkLabel(self.month_frame, text="",
+                                       font=("Arial", 11),
+                                       text_color=COLORS["text_dim"], anchor="w")
+        self.month_info.pack(fill="x", pady=(0, 6))
+
+        container = ctk.CTkFrame(self.month_frame, fg_color=COLORS["card"],
+                                 border_width=1, border_color=COLORS["border"],
+                                 corner_radius=8)
+        container.pack(fill="both", expand=True)
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
+
+        style = ttk.Style()
+        try:
+            style.theme_use("default")
+        except Exception:
+            pass
+        style.configure("Month.Treeview", rowheight=26, font=("Segoe UI", 10),
+                        background="white", fieldbackground="white",
+                        foreground=COLORS["text"], borderwidth=0)
+        style.configure("Month.Treeview.Heading", font=("Segoe UI", 10, "bold"),
+                        background=COLORS["hover"], foreground=COLORS["text"])
+        style.map("Month.Treeview", background=[("selected", COLORS["accent"])],
+                  foreground=[("selected", "white")])
+
+        self.month_tree = ttk.Treeview(container, style="Month.Treeview", show="headings")
+        vsb = ttk.Scrollbar(container, orient="vertical", command=self.month_tree.yview)
+        hsb = ttk.Scrollbar(container, orient="horizontal", command=self.month_tree.xview)
+        self.month_tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+
+        self.month_tree.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
+        vsb.grid(row=0, column=1, sticky="ns")
+        hsb.grid(row=1, column=0, sticky="ew")
+
+        self.month_tree.tag_configure("alt", background="#F8FAFC")
+        self.month_tree.tag_configure("weekend", background="#FEF3C7")
+        self.month_tree.tag_configure("group_top", background="#EFF6FF")
+
+    def show_month_frame(self):
+        self.hide_all_frames()
+        self.month_frame.pack(fill="both", expand=True)
+        self.set_active_nav(self.btn_month)
+        self.render_month()
+
+    def open_schedule_file(self):
+        path = "schedule.xlsx"
+        if not os.path.exists(path):
+            self.month_info.configure(text=f"Không tìm thấy {path}")
+            return
+        try:
+            if os.name == "nt":
+                os.startfile(path)
+            else:
+                subprocess.call(["open", path])
+        except Exception as e:
+            self.month_info.configure(text=f"Lỗi mở file: {e}")
+
+    def render_month(self):
+        for item in self.month_tree.get_children():
+            self.month_tree.delete(item)
+
+        path = "schedule.xlsx"
+        if not os.path.exists(path):
+            self.month_info.configure(text=f"Không tìm thấy file '{path}' trong thư mục app")
+            self.month_tree.configure(columns=())
+            return
+
+        try:
+            df = pd.read_excel(path, skiprows=3, header=0)
+            df = df.dropna(how="all")
+            if df.empty:
+                self.month_info.configure(text="File rỗng")
+                return
+
+            for col in df.columns[:3]:
+                df[col] = df[col].ffill()
+
+            first_row = df.iloc[0]
+            first_tt = str(first_row.iloc[0]).strip()
+            if first_tt in ("", "nan", "NaN") or first_tt.lower() == "nan":
+                df = df.iloc[1:]
+
+            import re
+            def fmt_header(h):
+                s = str(h)
+                m = re.match(r"(\d{4})-(\d{2})-(\d{2})", s)
+                if m:
+                    return f"{int(m.group(3))}/{int(m.group(2))}"
+                return s.replace("\n", " ").strip()
+
+            columns = list(df.columns)
+            col_ids = [f"c{i}" for i in range(len(columns))]
+            self.month_tree.configure(columns=col_ids)
+
+            for cid, orig in zip(col_ids, columns):
+                title = fmt_header(orig)
+                self.month_tree.heading(cid, text=title)
+                up = str(orig).upper()
+                if up == "TT":
+                    w = 40
+                elif "HỌ VÀ TÊN" in up:
+                    w = 160
+                elif "MÔN" in up:
+                    w = 60
+                elif re.match(r"(\d{4})-(\d{2})-(\d{2})", str(orig)):
+                    w = 80
+                else:
+                    w = 72
+                anchor = "w" if "HỌ VÀ TÊN" in up else "center"
+                self.month_tree.column(cid, width=w, minwidth=40, anchor=anchor, stretch=False)
+
+            rows = 0
+            prev_name = None
+            for _, row in df.iterrows():
+                values = []
+                for col in columns:
+                    v = row[col]
+                    if pd.isna(v):
+                        values.append("")
+                    else:
+                        values.append(str(v).replace("\n", " / ").strip())
+
+                name_val = values[1] if len(values) > 1 else ""
+                tags = []
+                if name_val and name_val != prev_name:
+                    tags.append("group_top")
+                    prev_name = name_val
+                elif rows % 2 == 1:
+                    tags.append("alt")
+
+                self.month_tree.insert("", "end", values=values, tags=tuple(tags))
+                rows += 1
+
+            self.month_info.configure(text=f"Đã nạp {rows} dòng từ {path}")
+        except Exception as e:
+            self.month_info.configure(text=f"Lỗi đọc file: {e}")
     # --- TAB: QUẢN LÝ CHUNG ---
     def render_mgmt(self):
         for widget in self.mgmt_scroll.winfo_children():
             widget.destroy()
-            
+
         if not self.mgmt_data:
-            print("⚠️ Cảnh báo: mgmt_data đang trống, không có gì để vẽ.")
+            ctk.CTkLabel(self.mgmt_scroll, text="Chưa có dữ liệu giảng viên",
+                         font=("Arial", 13), text_color=COLORS["text_dim"]).pack(pady=40)
+            if hasattr(self, "mgmt_count"):
+                self.mgmt_count.configure(text="")
             return
 
-        search = self.mgmt_search.get().lower()
-        
+        search = self.mgmt_search.get().lower().strip()
+
         count = 0
         for row in self.mgmt_data:
-            name = str(row.get('HỌ VÀ TÊN', '')).upper()
-            
-            # Lọc theo ô tìm kiếm
+            name = str(row.get('HỌ VÀ TÊN', '')).strip()
+            if not name or name.lower() == "nan":
+                continue
             if search and search not in name.lower():
                 continue
 
-            # Tạo Card cho giảng viên
-            card = ctk.CTkFrame(self.mgmt_scroll, fg_color="white", height=50, corner_radius=8)
-            card.pack(fill="x", pady=2, padx=10)
+            card = ctk.CTkFrame(self.mgmt_scroll, fg_color=COLORS["card"],
+                                height=46, corner_radius=8,
+                                border_width=1, border_color=COLORS["border"])
+            card.pack(fill="x", pady=3, padx=2)
             card.pack_propagate(False)
 
-            ctk.CTkLabel(card, text=name, font=("Arial", 13, "bold")).pack(side="left", padx=15)
-            
-            # Nút Chi tiết - Gắn dữ liệu 'row' vào Popup
-            btn = ctk.CTkButton(card, text="Chi tiết", width=80, height=30,
-                                command=lambda r=row: TeacherDetailWindow(self, r))
-            btn.pack(side="right", padx=10)
+            ctk.CTkLabel(card, text=name, font=("Arial", 13, "bold"),
+                         text_color=COLORS["text"]).pack(side="left", padx=14)
+
+            rank = str(row.get('CẤP BẬC', '')).strip()
+            if rank and rank.lower() != "nan":
+                ctk.CTkLabel(card, text=rank, font=("Arial", 11),
+                             text_color=COLORS["text_dim"]).pack(side="left", padx=(0, 10))
+
+            ctk.CTkButton(card, text="Chi tiết", width=80, height=28,
+                          fg_color=COLORS["accent"], hover_color="#1D4ED8",
+                          font=("Arial", 11, "bold"),
+                          command=lambda r=row: TeacherDetailWindow(self, r)
+                          ).pack(side="right", padx=10)
             count += 1
-            
-        print(f"Đã hiện thị {count} giảng viên lên màn hình.")
+
+        if hasattr(self, "mgmt_count"):
+            total = len(self.mgmt_data)
+            self.mgmt_count.configure(text=f"{count}/{total} giảng viên")
     def show_mgmt_frame(self):
         self.hide_all_frames()
         self.mgmt_frame.pack(fill="both", expand=True)
@@ -726,11 +904,17 @@ class TeacherManagerPro(ctk.CTk):
     def setup_mgmt_ui(self):
         self.clear_right_frame()
         header = ctk.CTkFrame(self.mgmt_frame, fg_color="transparent")
-        header.pack(fill="x", pady=(0, 15))
-        ctk.CTkLabel(header, text="Thông tin giảng viên", font=("Arial", 28, "bold")).pack(side="left")
+        header.pack(fill="x", pady=(0, 10))
+        ctk.CTkLabel(header, text="Thông tin giảng viên", font=("Arial", 20, "bold"),
+                     text_color=COLORS["text"]).pack(side="left")
+        self.mgmt_count = ctk.CTkLabel(header, text="", font=("Arial", 12),
+                                       text_color=COLORS["text_dim"])
+        self.mgmt_count.pack(side="right")
 
-        self.mgmt_search = ctk.CTkEntry(self.mgmt_frame, placeholder_text="Tìm kiếm tên giảng viên hoặc khoa", height=40)
-        self.mgmt_search.pack(fill="x", pady=10)
+        self.mgmt_search = ctk.CTkEntry(self.mgmt_frame,
+                                        placeholder_text="Tìm theo tên giảng viên...",
+                                        height=36, border_color=COLORS["border"])
+        self.mgmt_search.pack(fill="x", pady=(0, 10))
         self.mgmt_search.bind("<KeyRelease>", lambda e: self.render_mgmt())
 
         self.mgmt_scroll = ctk.CTkScrollableFrame(self.mgmt_frame, fg_color="transparent")
@@ -870,111 +1054,112 @@ class TeacherManagerPro(ctk.CTk):
 
     def render_plan(self):
         try:
-            if not self.plan_scroll.winfo_exists(): return
+            if not self.plan_scroll.winfo_exists():
+                return
             for child in self.plan_scroll.winfo_children():
                 child.destroy()
 
-            if not self.plan_data: return
+            if not self.plan_data:
+                ctk.CTkLabel(self.plan_scroll, text="Chưa có dữ liệu kế hoạch ngày",
+                             font=("Arial", 13),
+                             text_color=COLORS["text_dim"]).pack(pady=40)
+                return
 
             SUB_COLORS = {
                 "BC": ("#E0F2FE", "#0369A1"), "ĐH": ("#DCFCE7", "#15803D"),
                 "KB": ("#F3E8FF", "#7E22CE"), "ĐN": ("#FEF3C7", "#B45309"),
             }
 
-            # --- HEADER ---
-            header_f = ctk.CTkFrame(self.plan_scroll, fg_color="#F8FAFC", height=45, corner_radius=0)
-            header_f.pack(fill="x", padx=5, pady=(0, 5))
+            header_f = ctk.CTkFrame(self.plan_scroll, fg_color="#F8FAFC", height=36, corner_radius=0)
+            header_f.pack(fill="x", pady=(0, 2))
             header_f.pack_propagate(False)
-            
-            COLS = [("Họ và tên", 0.02, 0.28), ("Môn", 0.30, 0.10), ("1-2", 0.42, 0.14), 
+
+            COLS = [("Họ và tên", 0.02, 0.28), ("Môn", 0.30, 0.10), ("1-2", 0.42, 0.14),
                     ("3-4", 0.57, 0.14), ("5-6", 0.72, 0.14), ("7-8", 0.87, 0.14)]
             for txt, rx, rw in COLS:
-                ctk.CTkLabel(header_f, text=txt, font=("Arial", 12, "bold"), text_color="#64748B", anchor="w").place(relx=rx, rely=0.5, anchor="w", relwidth=rw)
+                ctk.CTkLabel(header_f, text=txt, font=("Arial", 11, "bold"),
+                             text_color=COLORS["text_dim"], anchor="w"
+                             ).place(relx=rx, rely=0.5, anchor="w", relwidth=rw)
 
-            # --- DỮ LIỆU ---
             prev_name = ""
-            group_frame = None # Frame chứa các dòng của cùng 1 người
+            group_frame = None
+            rendered = 0
 
             for i, row in enumerate(self.plan_data):
-                def get_v(k):
-                    v = str(row.get(k, "")).strip()
+                def get_v(k, _r=row):
+                    v = str(_r.get(k, "")).strip()
                     return "" if v.lower() == "nan" or v == "" else v
 
                 full_name = get_v("Họ và tên")
                 subject = get_v("môn học")
-                if not full_name and not subject: continue
+                if not full_name and not subject:
+                    continue
 
-                # KIỂM TRA: Nếu có tên mới -> Tạo Group Frame mới và vẽ đường kẻ cho người cũ
-                if full_name != "" and full_name != prev_name:
-                    # Vẽ đường kẻ ngăn cách nếu đây không phải người đầu tiên
-                    if i > 0:
-                        ctk.CTkFrame(self.plan_scroll, fg_color="#CBD5E1", height=2).pack(fill="x", padx=5, pady=(2, 5))
-                    
-                    # Tạo Group Frame mới cho giảng viên này
-                    group_frame = ctk.CTkFrame(self.plan_scroll, fg_color="white", corner_radius=0)
-                    group_frame.pack(fill="x", padx=5)
+                if full_name and full_name != prev_name:
+                    group_frame = ctk.CTkFrame(self.plan_scroll,
+                                               fg_color="white", corner_radius=0)
+                    group_frame.pack(fill="x", pady=(2, 0))
                     prev_name = full_name
                     is_duplicate = False
                 else:
                     is_duplicate = True
 
-                # Tạo dòng bên trong group_frame
-                row_f = ctk.CTkFrame(group_frame, fg_color="transparent", height=42, corner_radius=0)
+                row_f = ctk.CTkFrame(group_frame, fg_color="transparent",
+                                     height=32, corner_radius=0)
                 row_f.pack(fill="x")
                 row_f.pack_propagate(False)
 
-                # Vẽ Tên (Chỉ hiện ở dòng đầu của group)
                 display_name = full_name if not is_duplicate else ""
-                ctk.CTkLabel(row_f, text=display_name, font=("Arial", 13, "bold"), text_color="#1E293B", anchor="w").place(relx=0.02, rely=0.5, anchor="w", relwidth=0.28)
-                
-                # Vẽ Môn (Badge)
+                ctk.CTkLabel(row_f, text=display_name, font=("Arial", 12, "bold"),
+                             text_color=COLORS["text"], anchor="w"
+                             ).place(relx=0.02, rely=0.5, anchor="w", relwidth=0.28)
+
                 if subject:
                     bg, fg = SUB_COLORS.get(subject.upper(), ("#F1F5F9", "#475569"))
-                    badge = ctk.CTkFrame(row_f, fg_color=bg, corner_radius=6, height=22)
+                    badge = ctk.CTkFrame(row_f, fg_color=bg, corner_radius=4, height=20)
                     badge.place(relx=0.30, rely=0.5, anchor="w", relwidth=0.08)
-                    ctk.CTkLabel(badge, text=subject, font=("Arial", 10, "bold"), text_color=fg).pack(expand=True)
+                    ctk.CTkLabel(badge, text=subject, font=("Arial", 10, "bold"),
+                                 text_color=fg).pack(expand=True)
 
-                # Vẽ Lịch dạy
-                times = ["1 - 2", "3 - 4", "5 - 6", "7 - 8"]
-                for idx, t_col in enumerate(times):
+                for idx, t_col in enumerate(["1 - 2", "3 - 4", "5 - 6", "7 - 8"]):
                     val = get_v(t_col)
                     if val:
-                        ctk.CTkLabel(row_f, text=val, font=("Arial", 11), text_color="#2563EB", anchor="w").place(relx=0.42 + (idx*0.15), rely=0.5, anchor="w", relwidth=0.14)
+                        ctk.CTkLabel(row_f, text=val, font=("Arial", 11),
+                                     text_color=COLORS["accent"], anchor="w"
+                                     ).place(relx=0.42 + (idx * 0.15), rely=0.5,
+                                             anchor="w", relwidth=0.14)
+                rendered += 1
 
-                # Vẽ đường kẻ mờ nội bộ (Nếu vẫn còn dòng tiếp theo của cùng 1 người)
-                if i + 1 < len(self.plan_data):
-                    next_name = get_v(self.plan_data[i+1].get("Họ và tên", ""))
-                    if next_name == "" or next_name == prev_name:
-                        ctk.CTkFrame(group_frame, fg_color="#F1F5F9", height=1).pack(fill="x", padx=10)
+            if rendered == 0:
+                ctk.CTkLabel(self.plan_scroll, text="Không có dòng nào hợp lệ",
+                             font=("Arial", 12),
+                             text_color=COLORS["text_dim"]).pack(pady=20)
 
             self.update_idletasks()
         except Exception as e:
-            print(f"❌ Lỗi: {e}")
+            print(f"Lỗi render_plan: {e}")
     def setup_plan_ui(self):
         self.clear_right_frame()
-        # Header
         header = ctk.CTkFrame(self.plan_frame, fg_color="transparent")
-        header.pack(fill="x", pady=(0, 20))
-        
-        ctk.CTkLabel(header, text="Kế hoạch giảng dạy trong ngày", 
-                     font=("Arial", 26, "bold"), text_color=COLORS["text"]).pack(side="left")
+        header.pack(fill="x", pady=(0, 10))
 
-        # Toolbar
-        tool_bar = ctk.CTkFrame(self.plan_frame, fg_color="white", corner_radius=10, 
-                                border_width=1, border_color=COLORS["border"])
-        tool_bar.pack(fill="x", pady=10)
+        ctk.CTkLabel(header, text="Kế hoạch giảng dạy trong ngày",
+                     font=("Arial", 20, "bold"), text_color=COLORS["text"]).pack(side="left")
 
-        self.status_indicator = ctk.CTkLabel(tool_bar, text="🟢 Hệ thống sẵn sàng", 
-                                             font=("Arial", 12), text_color=COLORS["success"])
-        self.status_indicator.pack(side="left", padx=20, pady=10)
-
-        ctk.CTkButton(tool_bar, text="Làm mới dữ liệu", width=120, height=32,
+        ctk.CTkButton(header, text="Làm mới", width=100, height=32,
                       fg_color=COLORS["accent"], hover_color="#1D4ED8",
                       font=("Arial", 11, "bold"),
-                      command=self.check_realtime_status).pack(side="right", padx=15)
+                      command=self.check_realtime_status).pack(side="right")
 
-        # Khung cuộn hiển thị kế hoạch
-        self.plan_scroll = ctk.CTkScrollableFrame(self.plan_frame, fg_color="transparent")
+        self.status_indicator = ctk.CTkLabel(header, text="● Sẵn sàng",
+                                             font=("Arial", 11),
+                                             text_color=COLORS["success"])
+        self.status_indicator.pack(side="right", padx=(0, 12))
+
+        self.plan_scroll = ctk.CTkScrollableFrame(self.plan_frame,
+                                                  fg_color=COLORS["card"],
+                                                  border_width=1,
+                                                  border_color=COLORS["border"])
         self.plan_scroll.pack(fill="both", expand=True)
     def link_plan(self):
         """Hàm chọn file Excel từ máy tính"""
