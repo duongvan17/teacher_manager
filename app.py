@@ -1105,21 +1105,6 @@ class TeacherManagerPro(ctk.CTk):
                                            anchor="center", stretch=False)
                 self.month_tree.heading(cid, text=title)
 
-            subjects_seen = set()
-            for _, r in data.iterrows():
-                s = clean_numeric_text(r[2] if len(r) > 2 else "")
-                if s:
-                    subjects_seen.add(s.upper())
-            if hasattr(self, "month_subject_menu"):
-                menu_values = ["Tất cả"] + sorted(subjects_seen)
-                try:
-                    self.month_subject_menu.configure(values=menu_values)
-                except Exception:
-                    pass
-                if subject_filter not in menu_values:
-                    self.month_subject.set("Tất cả")
-                    subject_filter = "Tất cả"
-
             valid_slot_re = _re.compile(r"^\d+\s*-\s*\d+$")
             exclude_keywords = (
                 "THỐNG KÊ", "TỔNG", "CỘNG", "SÁNG", "CHIỀU",
@@ -1130,7 +1115,11 @@ class TeacherManagerPro(ctk.CTk):
                 up = str(nm).strip().upper()
                 if len(up) < 2:
                     return False
-                return not any(k in up for k in exclude_keywords)
+                if any(k in up for k in exclude_keywords):
+                    return False
+                if up.endswith(":"):
+                    return False
+                return True
 
             teachers = []
             current = None
@@ -1148,14 +1137,29 @@ class TeacherManagerPro(ctk.CTk):
                         "rows": [],
                     }
                     teachers.append(current)
+                elif name and not is_real_teacher(name):
+                    current = None
 
                 if current is None or not has_valid_slot:
-                    continue
-                if not is_real_teacher(current["name"]):
                     continue
                 current["rows"].append(r)
 
             teachers = [t for t in teachers if t["rows"]]
+
+            subjects_seen = set()
+            for t in teachers:
+                s = t["subject"].strip()
+                if s and not s.endswith(":"):
+                    subjects_seen.add(s.upper())
+            if hasattr(self, "month_subject_menu"):
+                menu_values = ["Tất cả"] + sorted(subjects_seen)
+                try:
+                    self.month_subject_menu.configure(values=menu_values)
+                except Exception:
+                    pass
+                if subject_filter not in menu_values:
+                    self.month_subject.set("Tất cả")
+                    subject_filter = "Tất cả"
 
             subject_tag_map = {
                 "BC": "subj_BC", "ĐH": "subj_DH", "DH": "subj_DH",
