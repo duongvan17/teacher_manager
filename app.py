@@ -281,8 +281,69 @@ COLORS = {
     "warning": "#F59E0B",      # Vàng cam
     "error": "#EF4444",        # Đỏ
     "purple": "#8B5CF6",       # Tím (Dự phòng cho các nút cũ)
-    "orange": "#F97316"        # Cam (Dự phòng cho các nút cũ)
-}#E2E8F0"        # Đường kẻ chia cắt
+    "orange": "#F97316",       # Cam (Dự phòng cho các nút cũ)
+    "sidebar_dark": "#0F172A", # Sidebar tối (tùy chọn)
+}
+
+import json
+
+class AppConfig:
+    DEFAULTS = {
+        "teacher_file": "danh sách k8.xlsx",
+        "schedule_file": "schedule.xlsx",
+        "document_folder": "Document",
+        "user_name": "Giảng viên",
+        "user_email": "",
+        "auto_update_schedule": True,
+        "appearance": "light",
+    }
+    PATH = "config.json"
+
+    @classmethod
+    def load(cls):
+        try:
+            with open(cls.PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            merged = dict(cls.DEFAULTS)
+            merged.update(data or {})
+            return merged
+        except Exception:
+            return dict(cls.DEFAULTS)
+
+    @classmethod
+    def save(cls, data):
+        try:
+            with open(cls.PATH, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            return True
+        except Exception as e:
+            print(f"[config] save error: {e}")
+            return False
+
+
+def clean_numeric_text(val):
+    """Chuyển '1.0' -> '1', '2.5' giữ nguyên, NaN/None -> ''."""
+    if val is None:
+        return ""
+    try:
+        if pd.isna(val):
+            return ""
+    except Exception:
+        pass
+    if isinstance(val, float):
+        if val.is_integer():
+            return str(int(val))
+        return f"{val:g}"
+    s = str(val).strip()
+    if s.lower() == "nan":
+        return ""
+    try:
+        f = float(s)
+        if f.is_integer():
+            return str(int(f))
+    except (ValueError, TypeError):
+        pass
+    return s
 
 
 class DocumentFrame(ctk.CTkFrame):
@@ -359,20 +420,22 @@ class TeacherDetailWindow(ctk.CTkToplevel):
 
         # Tự động quét qua tất cả các cột dữ liệu
         for key, value in data.items():
-            # Bỏ qua các cột không cần thiết hoặc rác
-            if "UNNAMED" in str(key).upper() or str(value).lower() == "nan":
+            if "UNNAMED" in str(key).upper():
                 continue
-                
+            display_val = clean_numeric_text(value)
+            if not display_val:
+                continue
+
             row_frame = ctk.CTkFrame(info_scroll, fg_color="#F8FAFC", corner_radius=8)
             row_frame.pack(fill="x", pady=3)
 
-            # Tên trường thông tin (bên trái)
-            ctk.CTkLabel(row_frame, text=str(key), font=("Arial", 12, "bold"), 
-                         text_color="#475569", width=140, anchor="w").pack(side="left", padx=15, pady=10)
-            
-            # Giá trị thông tin (bên phải)
-            ctk.CTkLabel(row_frame, text=str(value), font=("Arial", 13), 
-                         text_color="#1E293B", wraplength=280, justify="left").pack(side="left", fill="x", expand=True, padx=5)
+            ctk.CTkLabel(row_frame, text=str(key), font=("Arial", 12, "bold"),
+                         text_color="#475569", width=160, anchor="w"
+                         ).pack(side="left", padx=15, pady=10)
+
+            ctk.CTkLabel(row_frame, text=display_val, font=("Arial", 13),
+                         text_color="#1E293B", wraplength=280, justify="left"
+                         ).pack(side="left", fill="x", expand=True, padx=5)
 
         ctk.CTkButton(container, text="ĐÓNG", fg_color="#1E293B", command=self.destroy).pack(pady=20)
    
@@ -385,10 +448,11 @@ class TeacherManagerPro(ctk.CTk):
         else:
             print("Error: right_frame has not been initialized yet.")
     def hide_all_frames(self):
-        self.mgmt_frame.pack_forget()
-        self.plan_frame.pack_forget()
-        self.month_frame.pack_forget()
-        self.document_frame.pack_forget()
+        for name in ("dashboard_frame", "mgmt_frame", "plan_frame",
+                     "month_frame", "document_frame", "settings_frame"):
+            f = getattr(self, name, None)
+            if f is not None:
+                f.pack_forget()
 
 
     def build_tree(self, folder_path):
@@ -417,9 +481,13 @@ class TeacherManagerPro(ctk.CTk):
         for child in self.document_scroll.winfo_children():
             child.destroy()
 
-        folder = "Document"
+        folder = self.config_data.get("document_folder", "Document")
 
         if not os.path.exists(folder):
+            ctk.CTkLabel(self.document_scroll,
+                         text=f"Không tìm thấy thư mục '{folder}'. Mở tab Cài đặt để chọn lại.",
+                         font=("Arial", 12),
+                         text_color=COLORS["text_dim"]).pack(pady=40)
             return
 
         tree = self.build_tree(folder)
@@ -600,71 +668,135 @@ class TeacherManagerPro(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("TSQ Teacher Manager Pro")
-        self.geometry("1300x850")
+        self.geometry("1360x860")
         self.configure(fg_color=COLORS["bg"])
 
-        # 1. Khởi tạo dữ liệu
+        self.config_data = AppConfig.load()
+        ctk.set_appearance_mode(self.config_data.get("appearance", "light"))
+
         self.mgmt_data = []
         self.plan_data = []
-        
-        # 2. Xây dựng Layout (Quan trọng: Tạo frame trước khi setup UI)
+
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
         self.setup_sidebar()
-        
-        self.main_container = ctk.CTkFrame(self, fg_color="transparent")
-        self.main_container.grid(row=0, column=1, sticky="nsew", padx=16, pady=16)
 
+        self.main_container = ctk.CTkFrame(self, fg_color="transparent")
+        self.main_container.grid(row=0, column=1, sticky="nsew", padx=18, pady=18)
+
+        self.dashboard_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.mgmt_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.plan_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.month_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.document_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
-        # 3. Setup các thành phần giao diện
+        self.settings_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
+
+        self.setup_dashboard_ui()
         self.setup_mgmt_ui()
         self.setup_plan_ui()
         self.setup_month_ui()
         self.setup_document_ui()
-        # 4. Chạy các tính năng tự động
-        self.show_mgmt_frame() # Hiện tab quản lý trước
+        self.setup_settings_ui()
+
+        self.show_dashboard_frame()
         self.update_time()
-        
-        self.check_realtime_status() # Tự quét file kế hoạch ngày
-        self.teacher_db = [] # Khởi tạo danh sách trống trước
+
+        self.check_realtime_status()
+        self.teacher_db = []
         self.after(100, self.auto_load_mgmt_file)
     
        
     def setup_sidebar(self):
-        self.sidebar = ctk.CTkFrame(self, width=230, corner_radius=0, fg_color=COLORS["sidebar"])
+        self.sidebar = ctk.CTkFrame(self, width=250, corner_radius=0,
+                                    fg_color=COLORS["sidebar"],
+                                    border_width=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_propagate(False)
 
-        ctk.CTkLabel(self.sidebar, text="TSQ QLGV", font=("Arial", 20, "bold"),
-                     text_color=COLORS["accent"]).pack(pady=(28, 20))
+        brand = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        brand.pack(fill="x", pady=(22, 16), padx=18)
+        logo_badge = ctk.CTkFrame(brand, fg_color=COLORS["accent"], corner_radius=8,
+                                  width=32, height=32)
+        logo_badge.pack(side="left")
+        logo_badge.pack_propagate(False)
+        ctk.CTkLabel(logo_badge, text="HD", font=("Arial", 13, "bold"),
+                     text_color="white").pack(expand=True)
+        ctk.CTkLabel(brand, text="TSQ QLGV", font=("Arial", 17, "bold"),
+                     text_color=COLORS["text"]).pack(side="left", padx=10)
 
-        self.btn_mgmt = self.create_nav_btn("Quản lý chung", self.show_mgmt_frame)
-        self.btn_plan = self.create_nav_btn("Kế hoạch ngày", self.show_plan_frame)
-        self.btn_month = self.create_nav_btn("Kế hoạch tháng", self.show_month_frame)
-        self.btn_document = self.create_nav_btn("Tài liệu môn học", self.show_document_frame)
+        user_card = ctk.CTkFrame(self.sidebar, fg_color=COLORS["bg"], corner_radius=10)
+        user_card.pack(fill="x", padx=14, pady=(0, 14))
 
-        self.lbl_time = ctk.CTkLabel(self.sidebar, text="", font=("Arial", 12),
-                                     text_color=COLORS["text_dim"])
-        self.lbl_time.pack(side="bottom", pady=20)
+        avatar = ctk.CTkFrame(user_card, fg_color="#CBD5E1", corner_radius=18,
+                              width=36, height=36)
+        avatar.pack(side="left", padx=10, pady=8)
+        avatar.pack_propagate(False)
+        ctk.CTkLabel(avatar, text="GV", font=("Arial", 11, "bold"),
+                     text_color="white").pack(expand=True)
+
+        info = ctk.CTkFrame(user_card, fg_color="transparent")
+        info.pack(side="left", fill="x", expand=True, padx=(0, 8), pady=8)
+        self.lbl_user_name = ctk.CTkLabel(info, text=self.config_data.get("user_name") or "Giảng viên",
+                                          font=("Arial", 12, "bold"),
+                                          text_color=COLORS["text"], anchor="w")
+        self.lbl_user_name.pack(fill="x")
+        email = self.config_data.get("user_email") or "Chưa thiết lập"
+        self.lbl_user_email = ctk.CTkLabel(info, text=email,
+                                           font=("Arial", 10),
+                                           text_color=COLORS["text_dim"], anchor="w")
+        self.lbl_user_email.pack(fill="x")
+
+        ctk.CTkFrame(self.sidebar, height=1, fg_color=COLORS["border"]
+                     ).pack(fill="x", padx=14, pady=(0, 8))
+
+        self.btn_dashboard = self.create_nav_btn("🏠   Bảng điều khiển", self.show_dashboard_frame)
+        self.btn_mgmt = self.create_nav_btn("👥   Thông tin giảng viên", self.show_mgmt_frame)
+        self.btn_plan = self.create_nav_btn("📅   Kế hoạch ngày", self.show_plan_frame)
+        self.btn_month = self.create_nav_btn("🗓   Kế hoạch tháng", self.show_month_frame)
+        self.btn_document = self.create_nav_btn("📂   Tài liệu môn học", self.show_document_frame)
+
+        ctk.CTkFrame(self.sidebar, height=1, fg_color=COLORS["border"]
+                     ).pack(fill="x", padx=14, pady=(10, 8))
+
+        self.btn_settings = self.create_nav_btn("⚙   Cài đặt", self.show_settings_frame)
+
+        footer = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        footer.pack(side="bottom", fill="x", padx=14, pady=14)
+        self.lbl_time = ctk.CTkLabel(footer, text="",
+                                     font=("Arial", 11),
+                                     text_color=COLORS["text_dim"],
+                                     justify="left", anchor="w")
+        self.lbl_time.pack(fill="x")
+        ctk.CTkLabel(footer, text="v2.0.0 · TSQ Teacher Manager",
+                     font=("Arial", 9),
+                     text_color=COLORS["text_dim"], anchor="w"
+                     ).pack(fill="x", pady=(4, 0))
 
     def create_nav_btn(self, text, cmd):
-        btn = ctk.CTkButton(self.sidebar, text=text, font=("Arial", 13, "bold"), height=44,
+        btn = ctk.CTkButton(self.sidebar, text=text, font=("Arial", 13),
+                            height=40,
                             fg_color="transparent", text_color=COLORS["text"],
                             anchor="w", hover_color=COLORS["hover"], command=cmd)
-        btn.pack(pady=3, padx=14, fill="x")
+        btn.pack(pady=2, padx=12, fill="x")
         return btn
 
     def set_active_nav(self, active_btn):
-        for b in (self.btn_mgmt, self.btn_plan, self.btn_month, self.btn_document):
+        nav_buttons = [
+            getattr(self, n, None)
+            for n in ("btn_dashboard", "btn_mgmt", "btn_plan", "btn_month",
+                      "btn_document", "btn_settings")
+        ]
+        for b in nav_buttons:
+            if b is None:
+                continue
             if b is active_btn:
                 b.configure(fg_color=COLORS["accent"], text_color="white",
-                            hover_color="#1D4ED8")
+                            hover_color="#1D4ED8",
+                            font=("Arial", 13, "bold"))
             else:
                 b.configure(fg_color="transparent", text_color=COLORS["text"],
-                            hover_color=COLORS["hover"])
+                            hover_color=COLORS["hover"],
+                            font=("Arial", 13))
     def load_excel_smart(self, path, check_cols):
         try:
             raw = pd.read_excel(path, header=None)
@@ -759,7 +891,7 @@ class TeacherManagerPro(ctk.CTk):
         self.render_month()
 
     def open_schedule_file(self):
-        path = "schedule.xlsx"
+        path = self.config_data.get("schedule_file", "schedule.xlsx")
         if not os.path.exists(path):
             self.month_info.configure(text=f"Không tìm thấy {path}")
             return
@@ -775,9 +907,10 @@ class TeacherManagerPro(ctk.CTk):
         for item in self.month_tree.get_children():
             self.month_tree.delete(item)
 
-        path = "schedule.xlsx"
+        path = self.config_data.get("schedule_file", "schedule.xlsx")
         if not os.path.exists(path):
-            self.month_info.configure(text=f"Không tìm thấy file '{path}' trong thư mục app")
+            self.month_info.configure(
+                text=f"Không tìm thấy file '{path}'. Mở tab Cài đặt để chọn lại.")
             self.month_tree.configure(columns=())
             return
 
@@ -815,11 +948,11 @@ class TeacherManagerPro(ctk.CTk):
                 if up == "TT":
                     w = 40
                 elif "HỌ VÀ TÊN" in up:
-                    w = 160
+                    w = 170
                 elif "MÔN" in up:
                     w = 60
                 elif re.match(r"(\d{4})-(\d{2})-(\d{2})", str(orig)):
-                    w = 80
+                    w = 82
                 else:
                     w = 72
                 anchor = "w" if "HỌ VÀ TÊN" in up else "center"
@@ -827,18 +960,29 @@ class TeacherManagerPro(ctk.CTk):
 
             rows = 0
             prev_name = None
+            prev_subject = None
             for _, row in df.iterrows():
                 values = []
                 for col in columns:
-                    v = row[col]
-                    if pd.isna(v):
-                        values.append("")
-                    else:
-                        values.append(str(v).replace("\n", " / ").strip())
+                    values.append(clean_numeric_text(row[col]).replace("\n", " / "))
 
                 name_val = values[1] if len(values) > 1 else ""
+                subject_val = values[2] if len(values) > 2 else ""
+
+                new_teacher = bool(name_val) and name_val != prev_name
+                if new_teacher:
+                    prev_subject = None
+
+                if name_val and not new_teacher:
+                    values[0] = ""
+                    values[1] = ""
+                if subject_val and subject_val == prev_subject and not new_teacher:
+                    values[2] = ""
+                else:
+                    prev_subject = subject_val if subject_val else prev_subject
+
                 tags = []
-                if name_val and name_val != prev_name:
+                if new_teacher:
                     tags.append("group_top")
                     prev_name = name_val
                 elif rows % 2 == 1:
@@ -901,11 +1045,299 @@ class TeacherManagerPro(ctk.CTk):
         self.mgmt_frame.pack(fill="both", expand=True)
         self.set_active_nav(self.btn_mgmt)
 
+    def setup_dashboard_ui(self):
+        header = ctk.CTkFrame(self.dashboard_frame, fg_color="transparent")
+        header.pack(fill="x", pady=(0, 14))
+        ctk.CTkLabel(header, text="Bảng điều khiển", font=("Arial", 22, "bold"),
+                     text_color=COLORS["text"]).pack(side="left")
+        ctk.CTkLabel(header, text=datetime.now().strftime("%A, %d/%m/%Y"),
+                     font=("Arial", 12), text_color=COLORS["text_dim"]
+                     ).pack(side="right")
+
+        welcome = ctk.CTkFrame(self.dashboard_frame,
+                               fg_color=("#EFF6FF", "#1E3A8A"),
+                               corner_radius=12, border_width=0)
+        welcome.pack(fill="x", pady=(0, 14))
+        welcome_pad = ctk.CTkFrame(welcome, fg_color="transparent")
+        welcome_pad.pack(fill="x", padx=18, pady=14)
+        ctk.CTkLabel(welcome_pad,
+                     text=f"Xin chào, {self.config_data.get('user_name') or 'Giảng viên'} 👋",
+                     font=("Arial", 16, "bold"),
+                     text_color=COLORS["accent"], anchor="w"
+                     ).pack(fill="x")
+        ctk.CTkLabel(welcome_pad,
+                     text="Quản lý thông tin giảng viên, kế hoạch giảng dạy và tài liệu môn học.",
+                     font=("Arial", 12),
+                     text_color=COLORS["text_dim"], anchor="w"
+                     ).pack(fill="x", pady=(2, 0))
+
+        grid = ctk.CTkFrame(self.dashboard_frame, fg_color="transparent")
+        grid.pack(fill="x", pady=(0, 14))
+        for i in range(4):
+            grid.grid_columnconfigure(i, weight=1, uniform="stat")
+
+        self.stat_widgets = {}
+        stats = [
+            ("teachers", "Tổng giảng viên", "0", "#2563EB", "👥"),
+            ("subjects", "Số môn học", "0", "#10B981", "📚"),
+            ("today", "Tiết dạy hôm nay", "0", "#F59E0B", "⏰"),
+            ("files", "Tài liệu", "0", "#8B5CF6", "📂"),
+        ]
+        for i, (key, title, value, color, icon) in enumerate(stats):
+            card = ctk.CTkFrame(grid, fg_color=COLORS["card"], corner_radius=12,
+                                border_width=1, border_color=COLORS["border"])
+            card.grid(row=0, column=i, sticky="nsew", padx=6)
+
+            top = ctk.CTkFrame(card, fg_color="transparent")
+            top.pack(fill="x", padx=16, pady=(14, 4))
+            ctk.CTkLabel(top, text=title, font=("Arial", 11),
+                         text_color=COLORS["text_dim"], anchor="w"
+                         ).pack(side="left", fill="x", expand=True)
+            icon_bg = ctk.CTkFrame(top, fg_color=color, corner_radius=8,
+                                   width=32, height=32)
+            icon_bg.pack(side="right")
+            icon_bg.pack_propagate(False)
+            ctk.CTkLabel(icon_bg, text=icon, font=("Arial", 14),
+                         text_color="white").pack(expand=True)
+
+            value_lbl = ctk.CTkLabel(card, text=value,
+                                     font=("Arial", 26, "bold"),
+                                     text_color=COLORS["text"], anchor="w")
+            value_lbl.pack(fill="x", padx=16, pady=(0, 14))
+            self.stat_widgets[key] = value_lbl
+
+        shortcuts = ctk.CTkFrame(self.dashboard_frame, fg_color=COLORS["card"],
+                                 corner_radius=12, border_width=1,
+                                 border_color=COLORS["border"])
+        shortcuts.pack(fill="both", expand=True)
+        ctk.CTkLabel(shortcuts, text="Truy cập nhanh",
+                     font=("Arial", 14, "bold"),
+                     text_color=COLORS["text"], anchor="w"
+                     ).pack(fill="x", padx=18, pady=(14, 8))
+
+        shortcut_grid = ctk.CTkFrame(shortcuts, fg_color="transparent")
+        shortcut_grid.pack(fill="x", padx=12, pady=(0, 16))
+        for i in range(4):
+            shortcut_grid.grid_columnconfigure(i, weight=1, uniform="short")
+
+        shortcut_defs = [
+            ("Thông tin giảng viên", "Xem danh sách", self.show_mgmt_frame),
+            ("Kế hoạch ngày", "Lịch hôm nay", self.show_plan_frame),
+            ("Kế hoạch tháng", "Bảng tháng", self.show_month_frame),
+            ("Tài liệu môn", "Mở thư mục", self.show_document_frame),
+        ]
+        for i, (title, sub, cmd) in enumerate(shortcut_defs):
+            btn = ctk.CTkButton(shortcut_grid, text="",
+                                fg_color="transparent",
+                                hover_color=COLORS["hover"],
+                                corner_radius=10, height=70,
+                                border_width=1, border_color=COLORS["border"],
+                                command=cmd)
+            btn.grid(row=0, column=i, sticky="ew", padx=6, pady=4)
+
+            inner = ctk.CTkFrame(btn, fg_color="transparent")
+            inner.place(relx=0.5, rely=0.5, anchor="center")
+            ctk.CTkLabel(inner, text=title, font=("Arial", 12, "bold"),
+                         text_color=COLORS["text"]).pack()
+            ctk.CTkLabel(inner, text=sub, font=("Arial", 10),
+                         text_color=COLORS["text_dim"]).pack()
+
+    def show_dashboard_frame(self):
+        self.hide_all_frames()
+        self.dashboard_frame.pack(fill="both", expand=True)
+        self.set_active_nav(self.btn_dashboard)
+        self.refresh_dashboard_stats()
+
+    def refresh_dashboard_stats(self):
+        if not hasattr(self, "stat_widgets"):
+            return
+        teachers = sum(1 for r in self.mgmt_data if str(r.get('HỌ VÀ TÊN', '')).strip())
+        subjects = set()
+        for r in self.mgmt_data:
+            s = str(r.get('MÔN DẠY', '') or r.get('MÔN HỌC', '') or '').strip()
+            if s and s.lower() != 'nan':
+                subjects.add(s)
+        today_count = 0
+        for r in self.plan_data:
+            for slot in ("1 - 2", "3 - 4", "5 - 6", "7 - 8"):
+                v = str(r.get(slot, "")).strip()
+                if v and v.lower() != "nan":
+                    today_count += 1
+        files = 0
+        doc_folder = self.config_data.get("document_folder", "Document")
+        if os.path.exists(doc_folder):
+            for root, dirs, fs in os.walk(doc_folder):
+                dirs[:] = [d for d in dirs if not d.startswith('.')]
+                for f in fs:
+                    if not f.startswith('.') and not f.startswith('~$'):
+                        files += 1
+
+        self.stat_widgets["teachers"].configure(text=str(teachers))
+        self.stat_widgets["subjects"].configure(text=str(len(subjects)))
+        self.stat_widgets["today"].configure(text=str(today_count))
+        self.stat_widgets["files"].configure(text=str(files))
+
+    def setup_settings_ui(self):
+        header = ctk.CTkFrame(self.settings_frame, fg_color="transparent")
+        header.pack(fill="x", pady=(0, 14))
+        ctk.CTkLabel(header, text="Cài đặt", font=("Arial", 22, "bold"),
+                     text_color=COLORS["text"]).pack(side="left")
+        ctk.CTkLabel(header,
+                     text="Cấu hình đường dẫn file và tuỳ chọn hiển thị",
+                     font=("Arial", 12),
+                     text_color=COLORS["text_dim"]).pack(side="left", padx=(12, 0))
+
+        self.settings_vars = {}
+
+        def add_section(title):
+            section = ctk.CTkFrame(self.settings_frame, fg_color=COLORS["card"],
+                                    corner_radius=12, border_width=1,
+                                    border_color=COLORS["border"])
+            section.pack(fill="x", pady=(0, 12))
+            ctk.CTkLabel(section, text=title, font=("Arial", 14, "bold"),
+                         text_color=COLORS["text"], anchor="w"
+                         ).pack(fill="x", padx=18, pady=(14, 8))
+            return section
+
+        def add_file_row(parent, label, key, mode="file",
+                         filetypes=(("Excel", "*.xlsx *.xls"),)):
+            row = ctk.CTkFrame(parent, fg_color="transparent")
+            row.pack(fill="x", padx=18, pady=(0, 10))
+            ctk.CTkLabel(row, text=label, font=("Arial", 12),
+                         text_color=COLORS["text"], width=170, anchor="w"
+                         ).pack(side="left")
+            var = tk.StringVar(value=self.config_data.get(key, ""))
+            self.settings_vars[key] = var
+            entry = ctk.CTkEntry(row, textvariable=var, height=34,
+                                 border_color=COLORS["border"])
+            entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
+
+            def pick():
+                if mode == "folder":
+                    p = filedialog.askdirectory(initialdir=".")
+                else:
+                    p = filedialog.askopenfilename(filetypes=filetypes,
+                                                   initialdir=".")
+                if p:
+                    rel = os.path.relpath(p, os.getcwd())
+                    if not rel.startswith(".."):
+                        p = rel
+                    var.set(p)
+
+            ctk.CTkButton(row, text="Chọn...", width=84, height=34,
+                          fg_color="transparent",
+                          text_color=COLORS["text"],
+                          border_width=1, border_color=COLORS["border"],
+                          hover_color=COLORS["hover"], command=pick
+                          ).pack(side="left")
+
+        files_section = add_section("Đường dẫn dữ liệu")
+        add_file_row(files_section, "File danh sách GV", "teacher_file",
+                     mode="file", filetypes=(("Excel", "*.xlsx *.xls"),))
+        add_file_row(files_section, "File kế hoạch tháng", "schedule_file",
+                     mode="file", filetypes=(("Excel", "*.xlsx *.xls"),))
+        add_file_row(files_section, "Thư mục tài liệu", "document_folder",
+                     mode="folder")
+
+        user_section = add_section("Thông tin người dùng")
+        for label, key in (("Tên hiển thị", "user_name"), ("Email", "user_email")):
+            row = ctk.CTkFrame(user_section, fg_color="transparent")
+            row.pack(fill="x", padx=18, pady=(0, 10))
+            ctk.CTkLabel(row, text=label, font=("Arial", 12),
+                         text_color=COLORS["text"], width=170, anchor="w"
+                         ).pack(side="left")
+            var = tk.StringVar(value=self.config_data.get(key, ""))
+            self.settings_vars[key] = var
+            ctk.CTkEntry(row, textvariable=var, height=34,
+                         border_color=COLORS["border"]
+                         ).pack(side="left", fill="x", expand=True)
+
+        pref_section = add_section("Hiển thị")
+        row = ctk.CTkFrame(pref_section, fg_color="transparent")
+        row.pack(fill="x", padx=18, pady=(0, 10))
+        ctk.CTkLabel(row, text="Chế độ giao diện", font=("Arial", 12),
+                     text_color=COLORS["text"], width=170, anchor="w"
+                     ).pack(side="left")
+        appear_var = tk.StringVar(value=self.config_data.get("appearance", "light"))
+        self.settings_vars["appearance"] = appear_var
+        appear_menu = ctk.CTkOptionMenu(row, variable=appear_var,
+                                        values=["light", "dark", "system"],
+                                        fg_color=COLORS["accent"],
+                                        button_color=COLORS["accent"],
+                                        button_hover_color="#1D4ED8",
+                                        width=140)
+        appear_menu.pack(side="left")
+
+        row2 = ctk.CTkFrame(pref_section, fg_color="transparent")
+        row2.pack(fill="x", padx=18, pady=(0, 14))
+        ctk.CTkLabel(row2, text="Tự cập nhật lịch ngày",
+                     font=("Arial", 12),
+                     text_color=COLORS["text"], width=170, anchor="w"
+                     ).pack(side="left")
+        auto_var = tk.BooleanVar(value=bool(self.config_data.get("auto_update_schedule", True)))
+        self.settings_vars["auto_update_schedule"] = auto_var
+        ctk.CTkSwitch(row2, text="", variable=auto_var,
+                      progress_color=COLORS["accent"]).pack(side="left")
+
+        actions = ctk.CTkFrame(self.settings_frame, fg_color="transparent")
+        actions.pack(fill="x", pady=(4, 0))
+        self.settings_status = ctk.CTkLabel(actions, text="",
+                                            font=("Arial", 11),
+                                            text_color=COLORS["text_dim"])
+        self.settings_status.pack(side="left")
+        ctk.CTkButton(actions, text="Lưu cài đặt", width=130, height=36,
+                      fg_color=COLORS["accent"], hover_color="#1D4ED8",
+                      font=("Arial", 12, "bold"),
+                      command=self.save_settings).pack(side="right")
+        ctk.CTkButton(actions, text="Tải lại dữ liệu", width=130, height=36,
+                      fg_color="transparent", text_color=COLORS["text"],
+                      border_width=1, border_color=COLORS["border"],
+                      hover_color=COLORS["hover"],
+                      command=self.reload_all_data).pack(side="right", padx=(0, 8))
+
+    def show_settings_frame(self):
+        self.hide_all_frames()
+        self.settings_frame.pack(fill="both", expand=True)
+        self.set_active_nav(self.btn_settings)
+
+    def save_settings(self):
+        for key, var in self.settings_vars.items():
+            try:
+                self.config_data[key] = var.get()
+            except Exception:
+                pass
+        ok = AppConfig.save(self.config_data)
+        if ok:
+            self.settings_status.configure(
+                text=f"Đã lưu · {datetime.now().strftime('%H:%M:%S')}",
+                text_color=COLORS["success"])
+            self.lbl_user_name.configure(text=self.config_data.get("user_name") or "Giảng viên")
+            self.lbl_user_email.configure(text=self.config_data.get("user_email") or "Chưa thiết lập")
+            try:
+                ctk.set_appearance_mode(self.config_data.get("appearance", "light"))
+            except Exception:
+                pass
+        else:
+            self.settings_status.configure(text="Lỗi khi lưu config.json",
+                                           text_color=COLORS["error"])
+
+    def reload_all_data(self):
+        self.auto_load_mgmt_file()
+        self.check_realtime_status()
+        if hasattr(self, "month_tree"):
+            self.render_month()
+        if hasattr(self, "document_scroll"):
+            self.render_documents()
+        self.refresh_dashboard_stats()
+        self.settings_status.configure(
+            text=f"Đã tải lại · {datetime.now().strftime('%H:%M:%S')}",
+            text_color=COLORS["success"])
+
     def setup_mgmt_ui(self):
         self.clear_right_frame()
         header = ctk.CTkFrame(self.mgmt_frame, fg_color="transparent")
         header.pack(fill="x", pady=(0, 10))
-        ctk.CTkLabel(header, text="Thông tin giảng viên", font=("Arial", 20, "bold"),
+        ctk.CTkLabel(header, text="Thông tin giảng viên", font=("Arial", 22, "bold"),
                      text_color=COLORS["text"]).pack(side="left")
         self.mgmt_count = ctk.CTkLabel(header, text="", font=("Arial", 12),
                                        text_color=COLORS["text_dim"])
@@ -926,9 +1358,9 @@ class TeacherManagerPro(ctk.CTk):
             self.refresh_mgmt()
     def refresh_mgmt(self):
 
-        path = "danh sách k8.xlsx" # Hoặc dùng filedialog.askopenfilename()
+        path = self.config_data.get("teacher_file", "danh sách k8.xlsx")
         if not os.path.exists(path):
-            print("Không tìm thấy file!")
+            print(f"Không tìm thấy file {path}!")
             return
 
         try:
@@ -955,9 +1387,9 @@ class TeacherManagerPro(ctk.CTk):
             messagebox.showerror("Lỗi", f"Không thể nhận dữ liệu từ file: {e}")
     def auto_load_mgmt_file(self):
         """Tự động tìm tiêu đề và nạp dữ liệu chính xác"""
-        file_name = "danh sách k8.xlsx"
+        file_name = self.config_data.get("teacher_file", "danh sách k8.xlsx")
         if not os.path.exists(file_name):
-            print(f"❌ Không tìm thấy file tại: {os.path.abspath(file_name)}")
+            print(f"Không tìm thấy file tại: {os.path.abspath(file_name)}")
             return
 
         try:
@@ -980,8 +1412,9 @@ class TeacherManagerPro(ctk.CTk):
                 return
 
             # 2. Đọc lại file thật sự bắt đầu từ dòng tiêu đề đã tìm thấy
-            df = pd.read_excel(file_name, skiprows=header_row_index, engine='openpyxl')
-            
+            df = pd.read_excel(file_name, skiprows=header_row_index,
+                               engine='openpyxl', dtype=str)
+
             # 3. Chuẩn hóa tên cột một lần nữa cho chắc chắn
             df.columns = [str(c).strip().upper() for c in df.columns]
             
