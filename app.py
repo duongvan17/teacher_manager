@@ -1048,8 +1048,10 @@ class TeacherManagerPro(ctk.CTk):
                 self.month_info.configure(text="Không có dữ liệu")
                 return
 
-            for i in range(min(3, len(header_row))):
-                data[i] = data[i].ffill()
+            # Giữ bản gốc để phát hiện ranh giới GV (trước ffill)
+            raw_tt = data[0].copy() if 0 in data.columns else None
+            raw_name = data[1].copy() if 1 in data.columns else None
+            raw_subject = data[2].copy() if 2 in data.columns else None
 
             search = self.month_search.get().strip().lower() if hasattr(self, "month_search") else ""
             subject_filter = self.month_subject.get() if hasattr(self, "month_subject") else "Tất cả"
@@ -1123,25 +1125,33 @@ class TeacherManagerPro(ctk.CTk):
 
             teachers = []
             current = None
-            for _, r in data.iterrows():
-                name = clean_numeric_text(r[1] if len(r) > 1 else "")
+            for idx, r in data.iterrows():
+                orig_name = clean_numeric_text(raw_name.iloc[idx] if raw_name is not None else "")
+                orig_tt = clean_numeric_text(raw_tt.iloc[idx] if raw_tt is not None else "")
+                orig_subject = clean_numeric_text(raw_subject.iloc[idx] if raw_subject is not None else "")
                 slot_raw = clean_numeric_text(r[3] if len(r) > 3 else "")
                 slot_norm = slot_raw.replace(" ", "")
                 has_valid_slot = bool(valid_slot_re.match(slot_norm))
 
-                if name and is_real_teacher(name) and (current is None or current["name"] != name):
-                    current = {
-                        "tt": clean_numeric_text(r[0]),
-                        "name": name,
-                        "subject": clean_numeric_text(r[2] if len(r) > 2 else ""),
-                        "rows": [],
-                    }
-                    teachers.append(current)
-                elif name and not is_real_teacher(name):
-                    current = None
+                if orig_name:
+                    if is_real_teacher(orig_name):
+                        current = {
+                            "tt": orig_tt,
+                            "name": orig_name,
+                            "subject": orig_subject,
+                            "rows": [],
+                            "slots_seen": set(),
+                        }
+                        teachers.append(current)
+                    else:
+                        current = None
 
                 if current is None or not has_valid_slot:
                     continue
+                if slot_norm in current["slots_seen"] or len(current["rows"]) >= 4:
+                    current = None
+                    continue
+                current["slots_seen"].add(slot_norm)
                 current["rows"].append(r)
 
             teachers = [t for t in teachers if t["rows"]]
