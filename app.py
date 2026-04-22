@@ -1063,7 +1063,7 @@ class TeacherManagerPro(ctk.CTk):
             col_ids = [f"c{i}" for i in range(len(header_row))]
             self.month_tree.configure(columns=col_ids)
 
-            def fmt_date_col(orig, weekday_char):
+            def fmt_date_col(orig):
                 m = _re.match(r"(\d{4})-(\d{2})-(\d{2})", str(orig))
                 if not m:
                     return str(orig).replace("\n", " ").strip(), False, False
@@ -1071,33 +1071,38 @@ class TeacherManagerPro(ctk.CTk):
                 date_obj = datetime(int(yyyy), int(mm), int(dd))
                 wk_label = weekday_map_vn.get(date_obj.weekday(), "")
                 is_weekend = date_obj.weekday() >= 5
-                is_today = (today.year == date_obj.year and today.month == date_obj.month
+                is_today = (today.year == date_obj.year
+                            and today.month == date_obj.month
                             and today.day == date_obj.day)
-                label = f"{wk_label}\n{int(dd)}/{int(mm)}"
+                mark = " ●" if is_today else ""
+                label = f"{int(dd):02d}/{int(mm):02d} {wk_label}{mark}"
                 return label, is_weekend, is_today
 
-            date_info = {}
             for i, orig in enumerate(header_row):
                 cid = col_ids[i]
                 up = str(orig).upper()
                 if up == "TT":
                     title = "TT"
-                    self.month_tree.column(cid, width=44, minwidth=40, anchor="center", stretch=False)
+                    self.month_tree.column(cid, width=44, minwidth=40,
+                                           anchor="center", stretch=False)
                 elif "HỌ VÀ TÊN" in up:
                     title = "Họ và tên"
-                    self.month_tree.column(cid, width=180, minwidth=140, anchor="w", stretch=False)
+                    self.month_tree.column(cid, width=180, minwidth=140,
+                                           anchor="w", stretch=False)
                 elif "MÔN" in up:
                     title = "Môn"
-                    self.month_tree.column(cid, width=60, minwidth=50, anchor="center", stretch=False)
+                    self.month_tree.column(cid, width=60, minwidth=50,
+                                           anchor="center", stretch=False)
                 elif _re.match(r"(\d{4})-(\d{2})-(\d{2})", str(orig)):
-                    label, is_weekend, is_today = fmt_date_col(orig, weekday_row[i] if i < len(weekday_row) else "")
+                    label, is_weekend, is_today = fmt_date_col(orig)
                     title = label
-                    date_info[i] = (is_weekend, is_today)
-                    width = 82 if is_today else 76
-                    self.month_tree.column(cid, width=width, minwidth=60, anchor="center", stretch=False)
+                    width = 110 if is_today else 100
+                    self.month_tree.column(cid, width=width, minwidth=80,
+                                           anchor="center", stretch=False)
                 else:
                     title = str(orig).replace("\n", " ").strip() or " "
-                    self.month_tree.column(cid, width=72, minwidth=60, anchor="center", stretch=False)
+                    self.month_tree.column(cid, width=72, minwidth=60,
+                                           anchor="center", stretch=False)
                 self.month_tree.heading(cid, text=title)
 
             subjects_seen = set()
