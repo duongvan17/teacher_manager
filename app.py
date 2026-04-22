@@ -1120,13 +1120,27 @@ class TeacherManagerPro(ctk.CTk):
                     self.month_subject.set("Tất cả")
                     subject_filter = "Tất cả"
 
-            time_slot_col = 3
+            valid_slot_re = _re.compile(r"^\d+\s*-\s*\d+$")
+            exclude_keywords = (
+                "THỐNG KÊ", "TỔNG", "CỘNG", "SÁNG", "CHIỀU",
+                "QUÂN SỰ", "QUỐC TẾ", "CÔNG AN", "GHI CHÚ",
+            )
+
+            def is_real_teacher(nm):
+                up = str(nm).strip().upper()
+                if len(up) < 2:
+                    return False
+                return not any(k in up for k in exclude_keywords)
 
             teachers = []
             current = None
             for _, r in data.iterrows():
                 name = clean_numeric_text(r[1] if len(r) > 1 else "")
-                if name and (current is None or current["name"] != name):
+                slot_raw = clean_numeric_text(r[3] if len(r) > 3 else "")
+                slot_norm = slot_raw.replace(" ", "")
+                has_valid_slot = bool(valid_slot_re.match(slot_norm))
+
+                if name and is_real_teacher(name) and (current is None or current["name"] != name):
                     current = {
                         "tt": clean_numeric_text(r[0]),
                         "name": name,
@@ -1134,9 +1148,14 @@ class TeacherManagerPro(ctk.CTk):
                         "rows": [],
                     }
                     teachers.append(current)
-                if current is None:
+
+                if current is None or not has_valid_slot:
+                    continue
+                if not is_real_teacher(current["name"]):
                     continue
                 current["rows"].append(r)
+
+            teachers = [t for t in teachers if t["rows"]]
 
             subject_tag_map = {
                 "BC": "subj_BC", "ĐH": "subj_DH", "DH": "subj_DH",
