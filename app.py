@@ -478,29 +478,55 @@ class TeacherManagerPro(ctk.CTk):
 
         return tree
     def render_documents(self):
-        for child in self.document_scroll.winfo_children():
-            child.destroy()
+        if not hasattr(self, "doc_tree"):
+            return
+        for item in self.doc_tree.get_children():
+            self.doc_tree.delete(item)
+        self._doc_paths.clear()
 
         folder = self.config_data.get("document_folder", "Document")
+        self.doc_status.configure(text=f"Thư mục: {folder}")
 
         if not os.path.exists(folder):
-            ctk.CTkLabel(self.document_scroll,
-                         text=f"Không tìm thấy thư mục '{folder}'. Mở tab Cài đặt để chọn lại.",
-                         font=("Arial", 12),
-                         text_color=COLORS["text_dim"]).pack(pady=40)
+            self.doc_tree.insert("", "end",
+                text=f"  Không tìm thấy '{folder}'. Mở tab Cài đặt để chọn lại.")
             return
 
         tree = self.build_tree(folder)
-
         if not tree:
-            ctk.CTkLabel(
-                self.document_scroll,
-                text="📂 Chưa có tài liệu nào",
-                font=("Segoe UI", 16)
-            ).pack(pady=40)
+            self.doc_tree.insert("", "end", text="  Thư mục trống")
             return
 
-        self.render_tree(self.document_scroll, tree)
+        self._populate_doc_tree("", tree, folder)
+
+    def _populate_doc_tree(self, parent, tree, base_path):
+        for name, content in sorted(tree.items(),
+                                     key=lambda x: (not isinstance(x[1], dict),
+                                                    x[0].lower())):
+            full = os.path.join(base_path, name)
+            if isinstance(content, dict):
+                item = self.doc_tree.insert(parent, "end",
+                                            text=f"  📁  {name}", open=False)
+                self._populate_doc_tree(item, content, full)
+            else:
+                item = self.doc_tree.insert(parent, "end",
+                                            text=f"  📄  {name}")
+                self._doc_paths[item] = full
+
+    def _on_doc_tree_activate(self, event=None):
+        sel = self.doc_tree.selection()
+        if not sel:
+            return
+        path = self._doc_paths.get(sel[0])
+        if not path:
+            return
+        try:
+            if os.name == "nt":
+                os.startfile(path)
+            else:
+                subprocess.call(["open", path])
+        except Exception as e:
+            self.doc_status.configure(text=f"Lỗi mở file: {e}")
     def render_tree(self, parent, tree, base_path="", level=0):
         for name, content in sorted(tree.items(), key=lambda x: (not isinstance(x[1], dict), x[0].lower())):
             full_path = os.path.join(base_path, name)
@@ -818,16 +844,53 @@ class TeacherManagerPro(ctk.CTk):
         header = ctk.CTkFrame(self.document_frame, fg_color="transparent")
         header.pack(fill="x", pady=(0, 10))
 
-        ctk.CTkLabel(header, text="Tài liệu môn học", font=("Arial", 20, "bold"),
+        ctk.CTkLabel(header, text="Tài liệu môn học", font=("Arial", 22, "bold"),
                      text_color=COLORS["text"]).pack(side="left")
 
         ctk.CTkButton(header, text="Làm mới", width=100, height=32,
                       fg_color=COLORS["accent"], hover_color="#1D4ED8",
                       command=self.render_documents).pack(side="right")
 
-        self.document_scroll = ctk.CTkScrollableFrame(self.document_frame,
-                                                      fg_color=COLORS["card"])
-        self.document_scroll.pack(fill="both", expand=True)
+        self.doc_status = ctk.CTkLabel(self.document_frame, text="",
+                                        font=("Arial", 11),
+                                        text_color=COLORS["text_dim"],
+                                        anchor="w")
+        self.doc_status.pack(fill="x", pady=(0, 6))
+
+        container = ctk.CTkFrame(self.document_frame, fg_color=COLORS["card"],
+                                  corner_radius=10, border_width=1,
+                                  border_color=COLORS["border"])
+        container.pack(fill="both", expand=True)
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
+
+        style = ttk.Style()
+        try:
+            style.theme_use("default")
+        except Exception:
+            pass
+        style.configure("Doc.Treeview", rowheight=30, font=("Segoe UI", 11),
+                        background="white", fieldbackground="white",
+                        foreground=COLORS["text"], borderwidth=0)
+        style.configure("Doc.Treeview.Heading", font=("Segoe UI", 11, "bold"))
+        style.map("Doc.Treeview",
+                  background=[("selected", COLORS["accent"])],
+                  foreground=[("selected", "white")])
+
+        self.doc_tree = ttk.Treeview(container, style="Doc.Treeview",
+                                      show="tree", selectmode="browse")
+        vsb = ttk.Scrollbar(container, orient="vertical",
+                            command=self.doc_tree.yview)
+        self.doc_tree.configure(yscrollcommand=vsb.set)
+        self.doc_tree.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
+        vsb.grid(row=0, column=1, sticky="ns")
+
+        self.doc_tree.column("#0", width=700, stretch=True)
+
+        self.doc_tree.bind("<Double-1>", self._on_doc_tree_activate)
+        self.doc_tree.bind("<Return>", self._on_doc_tree_activate)
+
+        self._doc_paths = {}
 
     def setup_month_ui(self):
         header = ctk.CTkFrame(self.month_frame, fg_color="transparent")
