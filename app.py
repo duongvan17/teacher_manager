@@ -896,7 +896,7 @@ class TeacherManagerPro(ctk.CTk):
         header = ctk.CTkFrame(self.month_frame, fg_color="transparent")
         header.pack(fill="x", pady=(0, 10))
 
-        ctk.CTkLabel(header, text="Kế hoạch tháng", font=("Arial", 20, "bold"),
+        ctk.CTkLabel(header, text="Kế hoạch tháng", font=("Arial", 22, "bold"),
                      text_color=COLORS["text"]).pack(side="left")
 
         ctk.CTkButton(header, text="Làm mới", width=100, height=32,
@@ -909,10 +909,49 @@ class TeacherManagerPro(ctk.CTk):
                       hover_color=COLORS["hover"],
                       command=self.open_schedule_file).pack(side="right", padx=(0, 8))
 
-        self.month_info = ctk.CTkLabel(self.month_frame, text="",
-                                       font=("Arial", 11),
-                                       text_color=COLORS["text_dim"], anchor="w")
-        self.month_info.pack(fill="x", pady=(0, 6))
+        toolbar = ctk.CTkFrame(self.month_frame, fg_color=COLORS["card"],
+                                corner_radius=8, border_width=1,
+                                border_color=COLORS["border"])
+        toolbar.pack(fill="x", pady=(0, 8))
+
+        search_wrap = ctk.CTkFrame(toolbar, fg_color="transparent")
+        search_wrap.pack(side="left", fill="y", padx=10, pady=8)
+        ctk.CTkLabel(search_wrap, text="🔍", font=("Arial", 12)
+                     ).pack(side="left", padx=(0, 4))
+        self.month_search = ctk.CTkEntry(search_wrap, height=30, width=200,
+                                          placeholder_text="Tìm giảng viên...",
+                                          border_color=COLORS["border"])
+        self.month_search.pack(side="left")
+        self.month_search.bind("<KeyRelease>", lambda e: self.render_month())
+
+        subj_wrap = ctk.CTkFrame(toolbar, fg_color="transparent")
+        subj_wrap.pack(side="left", padx=(0, 10), pady=8)
+        ctk.CTkLabel(subj_wrap, text="Môn:", font=("Arial", 11),
+                     text_color=COLORS["text_dim"]
+                     ).pack(side="left", padx=(0, 6))
+        self.month_subject = tk.StringVar(value="Tất cả")
+        self.month_subject_menu = ctk.CTkOptionMenu(subj_wrap,
+                                                     variable=self.month_subject,
+                                                     values=["Tất cả"],
+                                                     width=110, height=30,
+                                                     fg_color=COLORS["accent"],
+                                                     button_color=COLORS["accent"],
+                                                     button_hover_color="#1D4ED8",
+                                                     command=lambda _: self.render_month())
+        self.month_subject_menu.pack(side="left")
+
+        self.hide_empty_var = tk.BooleanVar(value=True)
+        ctk.CTkSwitch(toolbar, text="Ẩn tiết trống",
+                      variable=self.hide_empty_var,
+                      font=("Arial", 11),
+                      progress_color=COLORS["accent"],
+                      command=self.render_month
+                      ).pack(side="left", padx=(0, 10), pady=8)
+
+        self.month_info = ctk.CTkLabel(toolbar, text="",
+                                        font=("Arial", 11),
+                                        text_color=COLORS["text_dim"], anchor="e")
+        self.month_info.pack(side="right", padx=10, pady=8)
 
         container = ctk.CTkFrame(self.month_frame, fg_color=COLORS["card"],
                                  border_width=1, border_color=COLORS["border"],
@@ -926,17 +965,21 @@ class TeacherManagerPro(ctk.CTk):
             style.theme_use("default")
         except Exception:
             pass
-        style.configure("Month.Treeview", rowheight=26, font=("Segoe UI", 10),
+        style.configure("Month.Treeview", rowheight=36, font=("Segoe UI", 11),
                         background="white", fieldbackground="white",
                         foreground=COLORS["text"], borderwidth=0)
         style.configure("Month.Treeview.Heading", font=("Segoe UI", 10, "bold"),
-                        background=COLORS["hover"], foreground=COLORS["text"])
+                        background="#E0E7FF", foreground=COLORS["text"],
+                        padding=(4, 4))
         style.map("Month.Treeview", background=[("selected", COLORS["accent"])],
                   foreground=[("selected", "white")])
 
-        self.month_tree = ttk.Treeview(container, style="Month.Treeview", show="headings")
-        vsb = ttk.Scrollbar(container, orient="vertical", command=self.month_tree.yview)
-        hsb = ttk.Scrollbar(container, orient="horizontal", command=self.month_tree.xview)
+        self.month_tree = ttk.Treeview(container, style="Month.Treeview",
+                                        show="headings")
+        vsb = ttk.Scrollbar(container, orient="vertical",
+                             command=self.month_tree.yview)
+        hsb = ttk.Scrollbar(container, orient="horizontal",
+                             command=self.month_tree.xview)
         self.month_tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
 
         self.month_tree.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
@@ -944,8 +987,12 @@ class TeacherManagerPro(ctk.CTk):
         hsb.grid(row=1, column=0, sticky="ew")
 
         self.month_tree.tag_configure("alt", background="#F8FAFC")
-        self.month_tree.tag_configure("weekend", background="#FEF3C7")
-        self.month_tree.tag_configure("group_top", background="#EFF6FF")
+        self.month_tree.tag_configure("group_top", background="#EFF6FF",
+                                       font=("Segoe UI", 11, "bold"))
+        self.month_tree.tag_configure("subj_BC", background="#EFF6FF")
+        self.month_tree.tag_configure("subj_DH", background="#F0FDF4")
+        self.month_tree.tag_configure("subj_KB", background="#FAF5FF")
+        self.month_tree.tag_configure("subj_DN", background="#FFFBEB")
 
     def show_month_frame(self):
         self.hide_all_frames()
@@ -973,88 +1020,172 @@ class TeacherManagerPro(ctk.CTk):
         path = self.config_data.get("schedule_file", "schedule.xlsx")
         if not os.path.exists(path):
             self.month_info.configure(
-                text=f"Không tìm thấy file '{path}'. Mở tab Cài đặt để chọn lại.")
+                text=f"Không tìm thấy '{path}'. Vào Cài đặt để chọn lại.")
             self.month_tree.configure(columns=())
             return
 
         try:
-            df = pd.read_excel(path, skiprows=3, header=0)
-            df = df.dropna(how="all")
-            if df.empty:
+            import re as _re
+            raw = pd.read_excel(path, skiprows=3, header=None)
+            raw = raw.dropna(how="all").reset_index(drop=True)
+            if len(raw) < 2:
                 self.month_info.configure(text="File rỗng")
+                self.month_tree.configure(columns=())
                 return
 
-            for col in df.columns[:3]:
-                df[col] = df[col].ffill()
+            header_row = [str(v) if not pd.isna(v) else "" for v in raw.iloc[0]]
+            weekday_row = []
+            data_start = 1
+            if len(raw) > 1:
+                second = raw.iloc[1]
+                if pd.isna(second.iloc[0]) or str(second.iloc[0]).strip() in ("", "nan"):
+                    weekday_row = [str(v) if not pd.isna(v) else "" for v in second]
+                    data_start = 2
 
-            first_row = df.iloc[0]
-            first_tt = str(first_row.iloc[0]).strip()
-            if first_tt in ("", "nan", "NaN") or first_tt.lower() == "nan":
-                df = df.iloc[1:]
+            data = raw.iloc[data_start:].reset_index(drop=True)
+            data.columns = range(len(header_row))
+            if data.empty:
+                self.month_info.configure(text="Không có dữ liệu")
+                return
 
-            import re
-            def fmt_header(h):
-                s = str(h)
-                m = re.match(r"(\d{4})-(\d{2})-(\d{2})", s)
-                if m:
-                    return f"{int(m.group(3))}/{int(m.group(2))}"
-                return s.replace("\n", " ").strip()
+            for i in range(min(3, len(header_row))):
+                data[i] = data[i].ffill()
 
-            columns = list(df.columns)
-            col_ids = [f"c{i}" for i in range(len(columns))]
+            search = self.month_search.get().strip().lower() if hasattr(self, "month_search") else ""
+            subject_filter = self.month_subject.get() if hasattr(self, "month_subject") else "Tất cả"
+            hide_empty = bool(self.hide_empty_var.get()) if hasattr(self, "hide_empty_var") else False
+
+            today = datetime.now()
+            today_key = today.strftime("%Y-%m-%d")
+
+            weekday_map_vn = {0: "T2", 1: "T3", 2: "T4", 3: "T5", 4: "T6", 5: "T7", 6: "CN"}
+
+            col_ids = [f"c{i}" for i in range(len(header_row))]
             self.month_tree.configure(columns=col_ids)
 
-            for cid, orig in zip(col_ids, columns):
-                title = fmt_header(orig)
-                self.month_tree.heading(cid, text=title)
+            def fmt_date_col(orig, weekday_char):
+                m = _re.match(r"(\d{4})-(\d{2})-(\d{2})", str(orig))
+                if not m:
+                    return str(orig).replace("\n", " ").strip(), False, False
+                yyyy, mm, dd = m.group(1), m.group(2), m.group(3)
+                date_obj = datetime(int(yyyy), int(mm), int(dd))
+                wk_label = weekday_map_vn.get(date_obj.weekday(), "")
+                is_weekend = date_obj.weekday() >= 5
+                is_today = (today.year == date_obj.year and today.month == date_obj.month
+                            and today.day == date_obj.day)
+                label = f"{wk_label}\n{int(dd)}/{int(mm)}"
+                return label, is_weekend, is_today
+
+            date_info = {}
+            for i, orig in enumerate(header_row):
+                cid = col_ids[i]
                 up = str(orig).upper()
                 if up == "TT":
-                    w = 40
+                    title = "TT"
+                    self.month_tree.column(cid, width=44, minwidth=40, anchor="center", stretch=False)
                 elif "HỌ VÀ TÊN" in up:
-                    w = 170
+                    title = "Họ và tên"
+                    self.month_tree.column(cid, width=180, minwidth=140, anchor="w", stretch=False)
                 elif "MÔN" in up:
-                    w = 60
-                elif re.match(r"(\d{4})-(\d{2})-(\d{2})", str(orig)):
-                    w = 82
+                    title = "Môn"
+                    self.month_tree.column(cid, width=60, minwidth=50, anchor="center", stretch=False)
+                elif _re.match(r"(\d{4})-(\d{2})-(\d{2})", str(orig)):
+                    label, is_weekend, is_today = fmt_date_col(orig, weekday_row[i] if i < len(weekday_row) else "")
+                    title = label
+                    date_info[i] = (is_weekend, is_today)
+                    width = 82 if is_today else 76
+                    self.month_tree.column(cid, width=width, minwidth=60, anchor="center", stretch=False)
                 else:
-                    w = 72
-                anchor = "w" if "HỌ VÀ TÊN" in up else "center"
-                self.month_tree.column(cid, width=w, minwidth=40, anchor=anchor, stretch=False)
+                    title = str(orig).replace("\n", " ").strip() or " "
+                    self.month_tree.column(cid, width=72, minwidth=60, anchor="center", stretch=False)
+                self.month_tree.heading(cid, text=title)
 
-            rows = 0
-            prev_name = None
-            prev_subject = None
-            for _, row in df.iterrows():
-                values = []
-                for col in columns:
-                    values.append(clean_numeric_text(row[col]).replace("\n", " / "))
+            subjects_seen = set()
+            for _, r in data.iterrows():
+                s = clean_numeric_text(r[2] if len(r) > 2 else "")
+                if s:
+                    subjects_seen.add(s.upper())
+            if hasattr(self, "month_subject_menu"):
+                menu_values = ["Tất cả"] + sorted(subjects_seen)
+                try:
+                    self.month_subject_menu.configure(values=menu_values)
+                except Exception:
+                    pass
+                if subject_filter not in menu_values:
+                    self.month_subject.set("Tất cả")
+                    subject_filter = "Tất cả"
 
-                name_val = values[1] if len(values) > 1 else ""
-                subject_val = values[2] if len(values) > 2 else ""
+            time_slot_col = 3
 
-                new_teacher = bool(name_val) and name_val != prev_name
-                if new_teacher:
-                    prev_subject = None
+            teachers = []
+            current = None
+            for _, r in data.iterrows():
+                name = clean_numeric_text(r[1] if len(r) > 1 else "")
+                if name and (current is None or current["name"] != name):
+                    current = {
+                        "tt": clean_numeric_text(r[0]),
+                        "name": name,
+                        "subject": clean_numeric_text(r[2] if len(r) > 2 else ""),
+                        "rows": [],
+                    }
+                    teachers.append(current)
+                if current is None:
+                    continue
+                current["rows"].append(r)
 
-                if name_val and not new_teacher:
-                    values[0] = ""
-                    values[1] = ""
-                if subject_val and subject_val == prev_subject and not new_teacher:
-                    values[2] = ""
-                else:
-                    prev_subject = subject_val if subject_val else prev_subject
+            subject_tag_map = {
+                "BC": "subj_BC", "ĐH": "subj_DH", "DH": "subj_DH",
+                "KB": "subj_KB", "ĐN": "subj_DN", "DN": "subj_DN",
+            }
 
-                tags = []
-                if new_teacher:
-                    tags.append("group_top")
-                    prev_name = name_val
-                elif rows % 2 == 1:
-                    tags.append("alt")
+            total_rows = 0
+            total_teachers = 0
+            for t in teachers:
+                if search and search not in t["name"].lower():
+                    continue
+                if subject_filter != "Tất cả" and t["subject"].upper() != subject_filter.upper():
+                    continue
 
-                self.month_tree.insert("", "end", values=values, tags=tuple(tags))
-                rows += 1
+                total_teachers += 1
+                subj_tag = subject_tag_map.get(t["subject"].upper(), "")
 
-            self.month_info.configure(text=f"Đã nạp {rows} dòng từ {path}")
+                first_in_block = True
+                for r in t["rows"]:
+                    values = []
+                    for i in range(len(header_row)):
+                        v = r[i] if i < len(r) else ""
+                        values.append(clean_numeric_text(v).replace("\n", " / "))
+
+                    if hide_empty:
+                        has_data = any(values[i].strip() for i in range(4, len(values)))
+                        if not has_data:
+                            continue
+
+                    if not first_in_block:
+                        values[0] = ""
+                        values[1] = ""
+                        values[2] = ""
+                    else:
+                        values[0] = t["tt"]
+                        values[1] = t["name"]
+                        values[2] = t["subject"]
+
+                    tags = []
+                    if first_in_block:
+                        tags.append("group_top")
+                    else:
+                        if total_rows % 2 == 1:
+                            tags.append("alt")
+                    if subj_tag:
+                        tags.append(subj_tag)
+
+                    self.month_tree.insert("", "end", values=values, tags=tuple(tags))
+                    total_rows += 1
+                    first_in_block = False
+
+            hint = " · Hôm nay: " + today.strftime("%d/%m")
+            self.month_info.configure(
+                text=f"{total_teachers} giảng viên · {total_rows} tiết{hint}")
         except Exception as e:
             self.month_info.configure(text=f"Lỗi đọc file: {e}")
     # --- TAB: QUẢN LÝ CHUNG ---
