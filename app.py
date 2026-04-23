@@ -733,78 +733,126 @@ class TeacherManagerPro(ctk.CTk):
     
        
     def setup_sidebar(self):
-        self.sidebar = ctk.CTkFrame(self, width=250, corner_radius=0,
+        self.sidebar_expanded = True
+        self.sidebar_w_expanded = 250
+        self.sidebar_w_collapsed = 64
+        self._nav_items = []
+
+        self.sidebar = ctk.CTkFrame(self, width=self.sidebar_w_expanded,
+                                    corner_radius=0,
                                     fg_color=COLORS["sidebar"],
                                     border_width=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_propagate(False)
 
-        brand = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        brand.pack(fill="x", pady=(22, 16), padx=18)
-        logo_badge = ctk.CTkFrame(brand, fg_color=COLORS["accent"], corner_radius=8,
-                                  width=32, height=32)
-        logo_badge.pack(side="left")
-        logo_badge.pack_propagate(False)
-        ctk.CTkLabel(logo_badge, text="HD", font=("Arial", 13, "bold"),
-                     text_color="white").pack(expand=True)
-        ctk.CTkLabel(brand, text="TSQ QLGV", font=("Arial", 17, "bold"),
-                     text_color=COLORS["text"]).pack(side="left", padx=10)
+        # Brand + toggle button
+        self.brand_row = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        self.brand_row.pack(fill="x", pady=(18, 14), padx=12)
 
-        user_card = ctk.CTkFrame(self.sidebar, fg_color=COLORS["bg"], corner_radius=10)
-        user_card.pack(fill="x", padx=14, pady=(0, 14))
-
-        avatar = ctk.CTkFrame(user_card, fg_color="#CBD5E1", corner_radius=18,
-                              width=36, height=36)
-        avatar.pack(side="left", padx=10, pady=8)
-        avatar.pack_propagate(False)
-        ctk.CTkLabel(avatar, text="GV", font=("Arial", 11, "bold"),
+        self.logo_badge = ctk.CTkFrame(self.brand_row, fg_color=COLORS["accent"],
+                                        corner_radius=8, width=32, height=32)
+        self.logo_badge.pack(side="left")
+        self.logo_badge.pack_propagate(False)
+        ctk.CTkLabel(self.logo_badge, text="HD", font=("Arial", 13, "bold"),
                      text_color="white").pack(expand=True)
 
-        info = ctk.CTkFrame(user_card, fg_color="transparent")
-        info.pack(side="left", fill="x", expand=True, padx=(0, 8), pady=8)
-        self.lbl_user_name = ctk.CTkLabel(info, text=self.config_data.get("user_name") or "Giảng viên",
-                                          font=("Arial", 12, "bold"),
-                                          text_color=COLORS["text"], anchor="w")
+        self.lbl_brand = ctk.CTkLabel(self.brand_row, text="TSQ QLGV",
+                                       font=("Arial", 17, "bold"),
+                                       text_color=COLORS["text"])
+        self.lbl_brand.pack(side="left", padx=10)
+
+        self.btn_toggle = ctk.CTkButton(self.brand_row, text="≡",
+                                         width=32, height=32,
+                                         font=("Arial", 18, "bold"),
+                                         fg_color="transparent",
+                                         text_color=COLORS["text_dim"],
+                                         hover_color=COLORS["hover"],
+                                         command=self.toggle_sidebar)
+        self.btn_toggle.pack(side="right")
+
+        # User info card
+        self.user_card = ctk.CTkFrame(self.sidebar, fg_color=COLORS["bg"],
+                                       corner_radius=10)
+        self.user_card.pack(fill="x", padx=12, pady=(0, 12))
+
+        self.user_avatar = ctk.CTkFrame(self.user_card, fg_color="#CBD5E1",
+                                         corner_radius=18, width=36, height=36)
+        self.user_avatar.pack(side="left", padx=10, pady=8)
+        self.user_avatar.pack_propagate(False)
+        ctk.CTkLabel(self.user_avatar, text="GV", font=("Arial", 11, "bold"),
+                     text_color="white").pack(expand=True)
+
+        self.user_info = ctk.CTkFrame(self.user_card, fg_color="transparent")
+        self.user_info.pack(side="left", fill="x", expand=True, padx=(0, 8), pady=8)
+        self.lbl_user_name = ctk.CTkLabel(self.user_info,
+                                           text=self.config_data.get("user_name") or "Giảng viên",
+                                           font=("Arial", 12, "bold"),
+                                           text_color=COLORS["text"], anchor="w")
         self.lbl_user_name.pack(fill="x")
         email = self.config_data.get("user_email") or "Chưa thiết lập"
-        self.lbl_user_email = ctk.CTkLabel(info, text=email,
-                                           font=("Arial", 10),
-                                           text_color=COLORS["text_dim"], anchor="w")
+        self.lbl_user_email = ctk.CTkLabel(self.user_info, text=email,
+                                            font=("Arial", 10),
+                                            text_color=COLORS["text_dim"], anchor="w")
         self.lbl_user_email.pack(fill="x")
 
-        ctk.CTkFrame(self.sidebar, height=1, fg_color=COLORS["border"]
-                     ).pack(fill="x", padx=14, pady=(0, 8))
+        self.sep1 = ctk.CTkFrame(self.sidebar, height=1, fg_color=COLORS["border"])
+        self.sep1.pack(fill="x", padx=12, pady=(0, 6))
 
-        self.btn_dashboard = self.create_nav_btn("🏠   Bảng điều khiển", self.show_dashboard_frame)
-        self.btn_mgmt = self.create_nav_btn("👥   Thông tin giảng viên", self.show_mgmt_frame)
-        self.btn_plan = self.create_nav_btn("📅   Kế hoạch ngày", self.show_plan_frame)
-        self.btn_month = self.create_nav_btn("🗓   Kế hoạch tháng", self.show_month_frame)
-        self.btn_document = self.create_nav_btn("📂   Tài liệu môn học", self.show_document_frame)
+        self.btn_dashboard = self.create_nav_btn("🏠", "Bảng điều khiển",
+                                                  self.show_dashboard_frame)
+        self.btn_mgmt = self.create_nav_btn("👥", "Thông tin giảng viên",
+                                             self.show_mgmt_frame)
+        self.btn_plan = self.create_nav_btn("📅", "Kế hoạch ngày",
+                                             self.show_plan_frame)
+        self.btn_month = self.create_nav_btn("🗓", "Kế hoạch tháng",
+                                              self.show_month_frame)
+        self.btn_document = self.create_nav_btn("📂", "Tài liệu môn học",
+                                                 self.show_document_frame)
 
-        ctk.CTkFrame(self.sidebar, height=1, fg_color=COLORS["border"]
-                     ).pack(fill="x", padx=14, pady=(10, 8))
+        self.sep2 = ctk.CTkFrame(self.sidebar, height=1, fg_color=COLORS["border"])
+        self.sep2.pack(fill="x", padx=12, pady=(8, 6))
 
-        self.btn_settings = self.create_nav_btn("⚙   Cài đặt", self.show_settings_frame)
+        self.btn_settings = self.create_nav_btn("⚙", "Cài đặt",
+                                                 self.show_settings_frame)
 
-        footer = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        footer.pack(side="bottom", fill="x", padx=14, pady=14)
-        self.lbl_time = ctk.CTkLabel(footer, text="",
-                                     font=("Arial", 11),
-                                     text_color=COLORS["text_dim"],
-                                     justify="left", anchor="w")
+        self.footer = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        self.footer.pack(side="bottom", fill="x", padx=12, pady=12)
+        self.lbl_time = ctk.CTkLabel(self.footer, text="",
+                                      font=("Arial", 11),
+                                      text_color=COLORS["text_dim"],
+                                      justify="left", anchor="w")
         self.lbl_time.pack(fill="x")
-        ctk.CTkLabel(footer, text="v2.0.0 · TSQ Teacher Manager",
-                     font=("Arial", 9),
-                     text_color=COLORS["text_dim"], anchor="w"
-                     ).pack(fill="x", pady=(4, 0))
+        self.lbl_version = ctk.CTkLabel(self.footer, text="v2.0.0 · TSQ Teacher Manager",
+                                         font=("Arial", 9),
+                                         text_color=COLORS["text_dim"], anchor="w")
+        self.lbl_version.pack(fill="x", pady=(4, 0))
 
-    def create_nav_btn(self, text, cmd):
-        btn = ctk.CTkButton(self.sidebar, text=text, font=("Arial", 13),
+    def create_nav_btn(self, icon, label, cmd):
+        btn = ctk.CTkButton(self.sidebar, text=f"{icon}   {label}",
+                            font=("Arial", 13),
                             height=40,
                             fg_color="transparent", text_color=COLORS["text"],
                             anchor="w", hover_color=COLORS["hover"], command=cmd)
-        btn.pack(pady=2, padx=12, fill="x")
+        btn.pack(pady=2, padx=10, fill="x")
+        self._nav_items.append((btn, icon, label))
         return btn
+
+    def toggle_sidebar(self):
+        self.sidebar_expanded = not self.sidebar_expanded
+        if self.sidebar_expanded:
+            self.sidebar.configure(width=self.sidebar_w_expanded)
+            self.lbl_brand.pack(side="left", padx=10)
+            self.user_card.pack(fill="x", padx=12, pady=(0, 12))
+            self.lbl_version.pack(fill="x", pady=(4, 0))
+            for btn, icon, label in self._nav_items:
+                btn.configure(text=f"{icon}   {label}", anchor="w")
+        else:
+            self.sidebar.configure(width=self.sidebar_w_collapsed)
+            self.lbl_brand.pack_forget()
+            self.user_card.pack_forget()
+            self.lbl_version.pack_forget()
+            for btn, icon, label in self._nav_items:
+                btn.configure(text=icon, anchor="center")
 
     def set_active_nav(self, active_btn):
         nav_buttons = [
@@ -1735,70 +1783,76 @@ class TeacherManagerPro(ctk.CTk):
                 "KB": ("#F3E8FF", "#7E22CE"), "ĐN": ("#FEF3C7", "#B45309"),
             }
 
-            header_f = ctk.CTkFrame(self.plan_scroll, fg_color="#F8FAFC", height=36, corner_radius=0)
-            header_f.pack(fill="x", pady=(0, 2))
-            header_f.pack_propagate(False)
-
-            COLS = [("Họ và tên", 0.02, 0.28), ("Môn", 0.30, 0.10), ("1-2", 0.42, 0.14),
-                    ("3-4", 0.57, 0.14), ("5-6", 0.72, 0.14), ("7-8", 0.87, 0.14)]
-            for txt, rx, rw in COLS:
-                ctk.CTkLabel(header_f, text=txt, font=("Arial", 11, "bold"),
-                             text_color=COLORS["text_dim"], anchor="w"
-                             ).place(relx=rx, rely=0.5, anchor="w", relwidth=rw)
-
+            # Chuẩn hoá + lọc: chỉ giữ dòng có ít nhất 1 tiết
+            entries = []
             prev_name = ""
-            group_frame = None
-            rendered = 0
-
-            for i, row in enumerate(self.plan_data):
+            for row in self.plan_data:
                 def get_v(k, _r=row):
                     v = str(_r.get(k, "")).strip()
                     return "" if v.lower() == "nan" or v == "" else v
-
-                full_name = get_v("Họ và tên")
+                name = get_v("Họ và tên")
                 subject = get_v("môn học")
-                if not full_name and not subject:
+                slots = [get_v(s) for s in ("1 - 2", "3 - 4", "5 - 6", "7 - 8")]
+                if not any(slots):
                     continue
+                if not name and not subject:
+                    continue
+                is_dup = (name == prev_name)
+                entries.append({
+                    "name": name if not is_dup else "",
+                    "subject": subject,
+                    "slots": slots,
+                })
+                if name:
+                    prev_name = name
 
-                if full_name and full_name != prev_name:
-                    group_frame = ctk.CTkFrame(self.plan_scroll,
-                                               fg_color="white", corner_radius=0)
-                    group_frame.pack(fill="x", pady=(2, 0))
-                    prev_name = full_name
-                    is_duplicate = False
-                else:
-                    is_duplicate = True
+            if not entries:
+                ctk.CTkLabel(self.plan_scroll, text="Hôm nay không có tiết nào",
+                             font=("Arial", 13),
+                             text_color=COLORS["text_dim"]).pack(pady=40)
+                return
 
-                row_f = ctk.CTkFrame(group_frame, fg_color="transparent",
-                                     height=32, corner_radius=0)
+            # Header
+            header_f = ctk.CTkFrame(self.plan_scroll, fg_color="#E0E7FF",
+                                    height=32, corner_radius=0)
+            header_f.pack(fill="x")
+            header_f.pack_propagate(False)
+            COLS = [("Họ và tên", 0.02, 0.28), ("Môn", 0.30, 0.08),
+                    ("Tiết 1-2", 0.40, 0.15), ("Tiết 3-4", 0.55, 0.15),
+                    ("Tiết 5-6", 0.70, 0.15), ("Tiết 7-8", 0.85, 0.15)]
+            for txt, rx, rw in COLS:
+                ctk.CTkLabel(header_f, text=txt, font=("Arial", 11, "bold"),
+                             text_color=COLORS["text"], anchor="w"
+                             ).place(relx=rx, rely=0.5, anchor="w", relwidth=rw)
+
+            # Body rows
+            for i, e in enumerate(entries):
+                bg = "white" if i % 2 == 0 else "#F8FAFC"
+                row_f = ctk.CTkFrame(self.plan_scroll, fg_color=bg,
+                                     height=30, corner_radius=0)
                 row_f.pack(fill="x")
                 row_f.pack_propagate(False)
 
-                display_name = full_name if not is_duplicate else ""
-                ctk.CTkLabel(row_f, text=display_name, font=("Arial", 12, "bold"),
+                ctk.CTkLabel(row_f, text=e["name"], font=("Arial", 12, "bold"),
                              text_color=COLORS["text"], anchor="w"
                              ).place(relx=0.02, rely=0.5, anchor="w", relwidth=0.28)
 
+                subject = e["subject"]
                 if subject:
-                    bg, fg = SUB_COLORS.get(subject.upper(), ("#F1F5F9", "#475569"))
-                    badge = ctk.CTkFrame(row_f, fg_color=bg, corner_radius=4, height=20)
-                    badge.place(relx=0.30, rely=0.5, anchor="w", relwidth=0.08)
+                    badge_bg, badge_fg = SUB_COLORS.get(subject.upper(),
+                                                        ("#F1F5F9", "#475569"))
+                    badge = ctk.CTkFrame(row_f, fg_color=badge_bg,
+                                         corner_radius=4, height=20)
+                    badge.place(relx=0.30, rely=0.5, anchor="w", relwidth=0.07)
                     ctk.CTkLabel(badge, text=subject, font=("Arial", 10, "bold"),
-                                 text_color=fg).pack(expand=True)
+                                 text_color=badge_fg).pack(expand=True)
 
-                for idx, t_col in enumerate(["1 - 2", "3 - 4", "5 - 6", "7 - 8"]):
-                    val = get_v(t_col)
+                for idx, val in enumerate(e["slots"]):
                     if val:
                         ctk.CTkLabel(row_f, text=val, font=("Arial", 11),
                                      text_color=COLORS["accent"], anchor="w"
-                                     ).place(relx=0.42 + (idx * 0.15), rely=0.5,
-                                             anchor="w", relwidth=0.14)
-                rendered += 1
-
-            if rendered == 0:
-                ctk.CTkLabel(self.plan_scroll, text="Không có dòng nào hợp lệ",
-                             font=("Arial", 12),
-                             text_color=COLORS["text_dim"]).pack(pady=20)
+                                     ).place(relx=0.40 + (idx * 0.15), rely=0.5,
+                                             anchor="w", relwidth=0.15)
 
             self.update_idletasks()
         except Exception as e:
