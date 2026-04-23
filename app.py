@@ -840,19 +840,26 @@ class TeacherManagerPro(ctk.CTk):
     def toggle_sidebar(self):
         self.sidebar_expanded = not self.sidebar_expanded
         if self.sidebar_expanded:
-            self.sidebar.configure(width=self.sidebar_w_expanded)
+            new_w = self.sidebar_w_expanded
             self.lbl_brand.pack(side="left", padx=10)
-            self.user_card.pack(fill="x", padx=12, pady=(0, 12))
+            self.user_card.pack(fill="x", padx=12, pady=(0, 12),
+                                before=self.sep1)
             self.lbl_version.pack(fill="x", pady=(4, 0))
             for btn, icon, label in self._nav_items:
                 btn.configure(text=f"{icon}   {label}", anchor="w")
+                btn.pack_configure(padx=10)
+            self.lbl_time.configure(font=("Arial", 11))
         else:
-            self.sidebar.configure(width=self.sidebar_w_collapsed)
+            new_w = self.sidebar_w_collapsed
             self.lbl_brand.pack_forget()
             self.user_card.pack_forget()
             self.lbl_version.pack_forget()
             for btn, icon, label in self._nav_items:
                 btn.configure(text=icon, anchor="center")
+                btn.pack_configure(padx=4)
+            self.lbl_time.configure(font=("Arial", 9))
+        self.sidebar.configure(width=new_w)
+        self.sidebar.update_idletasks()
 
     def set_active_nav(self, active_btn):
         nav_buttons = [
@@ -1779,45 +1786,47 @@ class TeacherManagerPro(ctk.CTk):
                 return
 
             SUB_COLORS = {
-                "BC": ("#E0F2FE", "#0369A1"), "ĐH": ("#DCFCE7", "#15803D"),
-                "KB": ("#F3E8FF", "#7E22CE"), "ĐN": ("#FEF3C7", "#B45309"),
+                "BC": ("#E0F2FE", "#0369A1", "#2563EB"),
+                "ĐH": ("#DCFCE7", "#15803D", "#10B981"),
+                "KB": ("#F3E8FF", "#7E22CE", "#8B5CF6"),
+                "ĐN": ("#FEF3C7", "#B45309", "#F59E0B"),
             }
 
-            # Chuẩn hoá + lọc: chỉ giữ dòng có ít nhất 1 tiết
-            entries = []
-            prev_name = ""
+            def get_v(r, k):
+                v = str(r.get(k, "")).strip()
+                return "" if v.lower() == "nan" or v == "" else v
+
+            # Gom dữ liệu theo giảng viên, lọc bỏ entry không có tiết
+            groups = []
+            current = None
             for row in self.plan_data:
-                def get_v(k, _r=row):
-                    v = str(_r.get(k, "")).strip()
-                    return "" if v.lower() == "nan" or v == "" else v
-                name = get_v("Họ và tên")
-                subject = get_v("môn học")
-                slots = [get_v(s) for s in ("1 - 2", "3 - 4", "5 - 6", "7 - 8")]
+                name = get_v(row, "Họ và tên")
+                subject = get_v(row, "môn học")
+                slots = [get_v(row, s) for s in ("1 - 2", "3 - 4", "5 - 6", "7 - 8")]
                 if not any(slots):
                     continue
                 if not name and not subject:
                     continue
-                is_dup = (name == prev_name)
-                entries.append({
-                    "name": name if not is_dup else "",
-                    "subject": subject,
-                    "slots": slots,
-                })
-                if name:
-                    prev_name = name
 
-            if not entries:
+                if name and (current is None or current["name"] != name):
+                    current = {"name": name, "rows": []}
+                    groups.append(current)
+                if current is None:
+                    continue
+                current["rows"].append({"subject": subject, "slots": slots})
+
+            if not groups:
                 ctk.CTkLabel(self.plan_scroll, text="Hôm nay không có tiết nào",
                              font=("Arial", 13),
                              text_color=COLORS["text_dim"]).pack(pady=40)
                 return
 
-            # Header
+            # Header bảng
             header_f = ctk.CTkFrame(self.plan_scroll, fg_color="#E0E7FF",
-                                    height=32, corner_radius=0)
-            header_f.pack(fill="x")
+                                    height=34, corner_radius=0)
+            header_f.pack(fill="x", pady=(0, 4))
             header_f.pack_propagate(False)
-            COLS = [("Họ và tên", 0.02, 0.28), ("Môn", 0.30, 0.08),
+            COLS = [("Họ và tên", 0.02, 0.26), ("Môn", 0.29, 0.08),
                     ("Tiết 1-2", 0.40, 0.15), ("Tiết 3-4", 0.55, 0.15),
                     ("Tiết 5-6", 0.70, 0.15), ("Tiết 7-8", 0.85, 0.15)]
             for txt, rx, rw in COLS:
@@ -1825,34 +1834,62 @@ class TeacherManagerPro(ctk.CTk):
                              text_color=COLORS["text"], anchor="w"
                              ).place(relx=rx, rely=0.5, anchor="w", relwidth=rw)
 
-            # Body rows
-            for i, e in enumerate(entries):
-                bg = "white" if i % 2 == 0 else "#F8FAFC"
-                row_f = ctk.CTkFrame(self.plan_scroll, fg_color=bg,
-                                     height=30, corner_radius=0)
-                row_f.pack(fill="x")
-                row_f.pack_propagate(False)
+            # Render từng nhóm GV
+            for gi, g in enumerate(groups):
+                primary_sub = g["rows"][0]["subject"].upper() if g["rows"] else ""
+                left_color = SUB_COLORS.get(primary_sub, (None, None, "#94A3B8"))[2]
 
-                ctk.CTkLabel(row_f, text=e["name"], font=("Arial", 12, "bold"),
-                             text_color=COLORS["text"], anchor="w"
-                             ).place(relx=0.02, rely=0.5, anchor="w", relwidth=0.28)
+                card = ctk.CTkFrame(self.plan_scroll, fg_color="white",
+                                     corner_radius=8,
+                                     border_width=1,
+                                     border_color=COLORS["border"])
+                card.pack(fill="x", padx=2, pady=(0, 6))
 
-                subject = e["subject"]
-                if subject:
-                    badge_bg, badge_fg = SUB_COLORS.get(subject.upper(),
-                                                        ("#F1F5F9", "#475569"))
-                    badge = ctk.CTkFrame(row_f, fg_color=badge_bg,
-                                         corner_radius=4, height=20)
-                    badge.place(relx=0.30, rely=0.5, anchor="w", relwidth=0.07)
-                    ctk.CTkLabel(badge, text=subject, font=("Arial", 10, "bold"),
-                                 text_color=badge_fg).pack(expand=True)
+                # Dải màu trái theo môn chính
+                stripe = ctk.CTkFrame(card, fg_color=left_color,
+                                       width=4, corner_radius=0)
+                stripe.pack(side="left", fill="y")
 
-                for idx, val in enumerate(e["slots"]):
-                    if val:
-                        ctk.CTkLabel(row_f, text=val, font=("Arial", 11),
-                                     text_color=COLORS["accent"], anchor="w"
-                                     ).place(relx=0.40 + (idx * 0.15), rely=0.5,
-                                             anchor="w", relwidth=0.15)
+                body = ctk.CTkFrame(card, fg_color="transparent")
+                body.pack(side="left", fill="both", expand=True)
+
+                for ri, entry in enumerate(g["rows"]):
+                    row_bg = "white" if ri % 2 == 0 else "#F8FAFC"
+                    row_f = ctk.CTkFrame(body, fg_color=row_bg,
+                                          height=34, corner_radius=0)
+                    row_f.pack(fill="x")
+                    row_f.pack_propagate(False)
+
+                    # Chỉ dòng đầu của nhóm hiện tên
+                    display_name = g["name"] if ri == 0 else ""
+                    ctk.CTkLabel(row_f, text=display_name,
+                                 font=("Arial", 13, "bold"),
+                                 text_color=COLORS["text"], anchor="w"
+                                 ).place(relx=0.02, rely=0.5, anchor="w",
+                                         relwidth=0.28)
+
+                    subject = entry["subject"]
+                    if subject:
+                        bg_c, fg_c, _ = SUB_COLORS.get(subject.upper(),
+                                                        ("#F1F5F9", "#475569", "#94A3B8"))
+                        badge = ctk.CTkFrame(row_f, fg_color=bg_c,
+                                              corner_radius=10, height=22)
+                        badge.place(relx=0.29, rely=0.5, anchor="w",
+                                    relwidth=0.08)
+                        ctk.CTkLabel(badge, text=subject,
+                                      font=("Arial", 10, "bold"),
+                                      text_color=fg_c).pack(expand=True)
+
+                    for idx, val in enumerate(entry["slots"]):
+                        if val:
+                            tile = ctk.CTkFrame(row_f, fg_color="#EFF6FF",
+                                                 corner_radius=6, height=24)
+                            tile.place(relx=0.40 + (idx * 0.15), rely=0.5,
+                                       anchor="w", relwidth=0.14)
+                            ctk.CTkLabel(tile, text=val,
+                                          font=("Arial", 11, "bold"),
+                                          text_color=COLORS["accent"]
+                                          ).pack(expand=True)
 
             self.update_idletasks()
         except Exception as e:
