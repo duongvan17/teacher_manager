@@ -744,6 +744,7 @@ class TeacherManagerPro(ctk.CTk):
                                     border_width=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_propagate(False)
+        self.grid_columnconfigure(0, minsize=self.sidebar_w_expanded)
 
         # Brand + toggle button
         self.brand_row = ctk.CTkFrame(self.sidebar, fg_color="transparent")
@@ -859,7 +860,8 @@ class TeacherManagerPro(ctk.CTk):
                 btn.pack_configure(padx=4)
             self.lbl_time.configure(font=("Arial", 9))
         self.sidebar.configure(width=new_w)
-        self.sidebar.update_idletasks()
+        self.grid_columnconfigure(0, minsize=new_w)
+        self.update_idletasks()
 
     def set_active_nav(self, active_btn):
         nav_buttons = [
@@ -1837,30 +1839,22 @@ class TeacherManagerPro(ctk.CTk):
             # Render từng nhóm GV
             for gi, g in enumerate(groups):
                 primary_sub = g["rows"][0]["subject"].upper() if g["rows"] else ""
-                left_color = SUB_COLORS.get(primary_sub, (None, None, "#94A3B8"))[2]
+                border_c = SUB_COLORS.get(primary_sub, (None, None, "#CBD5E1"))[2]
 
                 card = ctk.CTkFrame(self.plan_scroll, fg_color="white",
                                      corner_radius=8,
-                                     border_width=1,
-                                     border_color=COLORS["border"])
+                                     border_width=2,
+                                     border_color=border_c)
                 card.pack(fill="x", padx=2, pady=(0, 6))
-
-                # Dải màu trái theo môn chính
-                stripe = ctk.CTkFrame(card, fg_color=left_color,
-                                       width=4, corner_radius=0)
-                stripe.pack(side="left", fill="y")
-
-                body = ctk.CTkFrame(card, fg_color="transparent")
-                body.pack(side="left", fill="both", expand=True)
 
                 for ri, entry in enumerate(g["rows"]):
                     row_bg = "white" if ri % 2 == 0 else "#F8FAFC"
-                    row_f = ctk.CTkFrame(body, fg_color=row_bg,
-                                          height=34, corner_radius=0)
-                    row_f.pack(fill="x")
+                    row_f = ctk.CTkFrame(card, fg_color=row_bg,
+                                          height=36, corner_radius=0)
+                    row_f.pack(fill="x", padx=2, pady=(2 if ri == 0 else 0,
+                                                        2 if ri == len(g["rows"]) - 1 else 0))
                     row_f.pack_propagate(False)
 
-                    # Chỉ dòng đầu của nhóm hiện tên
                     display_name = g["name"] if ri == 0 else ""
                     ctk.CTkLabel(row_f, text=display_name,
                                  font=("Arial", 13, "bold"),
@@ -1883,7 +1877,7 @@ class TeacherManagerPro(ctk.CTk):
                     for idx, val in enumerate(entry["slots"]):
                         if val:
                             tile = ctk.CTkFrame(row_f, fg_color="#EFF6FF",
-                                                 corner_radius=6, height=24)
+                                                 corner_radius=6, height=26)
                             tile.place(relx=0.40 + (idx * 0.15), rely=0.5,
                                        anchor="w", relwidth=0.14)
                             ctk.CTkLabel(tile, text=val,
