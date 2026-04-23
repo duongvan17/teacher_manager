@@ -747,7 +747,7 @@ class TeacherManagerPro(ctk.CTk):
         self.sidebar.pack_propagate(False)
         self.grid_columnconfigure(0, minsize=self.sidebar_w_expanded, weight=0)
 
-        # Brand + toggle button
+        # Brand row (logo + name)
         self.brand_row = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         self.brand_row.pack(fill="x", pady=(18, 14), padx=12)
 
@@ -762,15 +762,6 @@ class TeacherManagerPro(ctk.CTk):
                                        font=("Arial", 17, "bold"),
                                        text_color=COLORS["text"])
         self.lbl_brand.pack(side="left", padx=10)
-
-        self.btn_toggle = ctk.CTkButton(self.brand_row, text="≡",
-                                         width=32, height=32,
-                                         font=("Arial", 18, "bold"),
-                                         fg_color="transparent",
-                                         text_color=COLORS["text_dim"],
-                                         hover_color=COLORS["hover"],
-                                         command=self.toggle_sidebar)
-        self.btn_toggle.pack(side="right")
 
         # User info card
         self.user_card = ctk.CTkFrame(self.sidebar, fg_color=COLORS["bg"],
@@ -817,8 +808,20 @@ class TeacherManagerPro(ctk.CTk):
         self.btn_settings = self.create_nav_btn("⚙", "Cài đặt",
                                                  self.show_settings_frame)
 
+        # Toggle button ở đáy sidebar (cạnh dưới)
+        self.toggle_row = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        self.toggle_row.pack(side="bottom", fill="x", padx=8, pady=(6, 10))
+        self.btn_toggle = ctk.CTkButton(self.toggle_row, text="‹",
+                                         width=32, height=32,
+                                         font=("Arial", 20, "bold"),
+                                         fg_color="transparent",
+                                         text_color=COLORS["text_dim"],
+                                         hover_color=COLORS["hover"],
+                                         command=self.toggle_sidebar)
+        self.btn_toggle.pack(side="right")
+
         self.footer = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        self.footer.pack(side="bottom", fill="x", padx=12, pady=12)
+        self.footer.pack(side="bottom", fill="x", padx=12, pady=(12, 0))
         self.lbl_time = ctk.CTkLabel(self.footer, text="",
                                       font=("Arial", 11),
                                       text_color=COLORS["text_dim"],
@@ -846,20 +849,22 @@ class TeacherManagerPro(ctk.CTk):
             self.lbl_brand.pack(side="left", padx=10)
             self.user_card.pack(fill="x", padx=12, pady=(0, 12),
                                 before=self.sep1)
-            self.lbl_version.pack(fill="x", pady=(4, 0))
+            self.footer.pack(side="bottom", fill="x", padx=12, pady=(12, 0))
             for btn, icon, label in self._nav_items:
                 btn.configure(text=f"{icon}   {label}", anchor="w")
                 btn.pack_configure(padx=10)
-            self.lbl_time.configure(font=("Arial", 11))
+            self.btn_toggle.configure(text="‹")
+            self.btn_toggle.pack_configure(side="right")
         else:
             new_w = self.sidebar_w_collapsed
             self.lbl_brand.pack_forget()
             self.user_card.pack_forget()
-            self.lbl_version.pack_forget()
+            self.footer.pack_forget()
             for btn, icon, label in self._nav_items:
                 btn.configure(text=icon, anchor="center")
                 btn.pack_configure(padx=4)
-            self.lbl_time.configure(font=("Arial", 9))
+            self.btn_toggle.configure(text="›")
+            self.btn_toggle.pack_configure(side="top")
         self.sidebar.configure(width=new_w)
         self.grid_columnconfigure(0, minsize=new_w, weight=0)
         self.sidebar.update_idletasks()
