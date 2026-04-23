@@ -843,32 +843,10 @@ class TeacherManagerPro(ctk.CTk):
         return btn
 
     def toggle_sidebar(self):
-        if getattr(self, "_sidebar_animating", False):
-            return
         self.sidebar_expanded = not self.sidebar_expanded
 
         if self.sidebar_expanded:
-            target_w = self.sidebar_w_expanded
-            self.btn_toggle.configure(text="‹")
-        else:
-            target_w = self.sidebar_w_collapsed
-            self.btn_toggle.configure(text="›")
-            # Ẩn text trước khi thu để tránh tràn
-            self._apply_sidebar_state(collapsed=True, show_text=False)
-
-        self._animate_sidebar_width(target_w,
-                                    after_done=self._on_sidebar_animation_end)
-
-    def _apply_sidebar_state(self, collapsed, show_text):
-        if collapsed:
-            self.lbl_brand.pack_forget()
-            self.user_card.pack_forget()
-            self.footer.pack_forget()
-            for btn, icon, label in self._nav_items:
-                btn.configure(text=icon, anchor="center")
-                btn.pack_configure(padx=4)
-            self.btn_toggle.pack_configure(side="top")
-        else:
+            new_w = self.sidebar_w_expanded
             self.lbl_brand.pack(side="left", padx=10)
             self.user_card.pack(fill="x", padx=12, pady=(0, 12),
                                 before=self.sep1)
@@ -876,40 +854,21 @@ class TeacherManagerPro(ctk.CTk):
             for btn, icon, label in self._nav_items:
                 btn.configure(text=f"{icon}   {label}", anchor="w")
                 btn.pack_configure(padx=10)
+            self.btn_toggle.configure(text="‹")
             self.btn_toggle.pack_configure(side="right")
+        else:
+            new_w = self.sidebar_w_collapsed
+            self.lbl_brand.pack_forget()
+            self.user_card.pack_forget()
+            self.footer.pack_forget()
+            for btn, icon, label in self._nav_items:
+                btn.configure(text=icon, anchor="center")
+                btn.pack_configure(padx=4)
+            self.btn_toggle.configure(text="›")
+            self.btn_toggle.pack_configure(side="top")
 
-    def _on_sidebar_animation_end(self):
-        if self.sidebar_expanded:
-            self._apply_sidebar_state(collapsed=False, show_text=True)
-        self.update_idletasks()
-
-    def _animate_sidebar_width(self, target_w, duration_ms=160, steps=8,
-                                after_done=None):
-        self._sidebar_animating = True
-        try:
-            current_w = self.sidebar.winfo_width()
-            if current_w <= 1:
-                current_w = int(self.sidebar.cget("width"))
-        except Exception:
-            current_w = self.sidebar_w_expanded
-        delta = (target_w - current_w) / max(steps, 1)
-        step_ms = max(int(duration_ms / steps), 10)
-
-        def tick(i):
-            if i >= steps:
-                self.sidebar.configure(width=target_w)
-                self.grid_columnconfigure(0, minsize=target_w, weight=0)
-                self.update_idletasks()
-                self._sidebar_animating = False
-                if after_done:
-                    after_done()
-                return
-            w = int(current_w + delta * (i + 1))
-            self.sidebar.configure(width=w)
-            self.grid_columnconfigure(0, minsize=w, weight=0)
-            self.after(step_ms, lambda: tick(i + 1))
-
-        tick(0)
+        self.sidebar.configure(width=new_w)
+        self.grid_columnconfigure(0, minsize=new_w, weight=0)
 
     def set_active_nav(self, active_btn):
         nav_buttons = [
