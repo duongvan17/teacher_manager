@@ -623,7 +623,7 @@ class TeacherManagerPro(ctk.CTk):
     def show_document_frame(self):
         self.hide_all_frames()
         self.document_frame.pack(fill="both", expand=True)
-        self.set_active_nav(self.btn_document)
+        self.set_active_nav("document")
         self.render_documents()
   
     def start_live_sync(self):
@@ -736,157 +736,173 @@ class TeacherManagerPro(ctk.CTk):
         self.sidebar_expanded = True
         self.sidebar_w_expanded = 250
         self.sidebar_w_collapsed = 64
-        self._nav_items = []
+        self._nav_defs = [
+            ("dashboard", "🏠", "Bảng điều khiển", "show_dashboard_frame"),
+            ("mgmt", "👥", "Thông tin giảng viên", "show_mgmt_frame"),
+            ("plan", "📅", "Kế hoạch ngày", "show_plan_frame"),
+            ("month", "🗓", "Kế hoạch tháng", "show_month_frame"),
+            ("document", "📂", "Tài liệu môn học", "show_document_frame"),
+            ("settings", "⚙", "Cài đặt", "show_settings_frame"),
+        ]
+        self._nav_full = {}   # key -> CTkButton (full)
+        self._nav_mini = {}   # key -> CTkButton (mini)
 
-        self.sidebar = ctk.CTkFrame(self, width=self.sidebar_w_expanded,
-                                    corner_radius=0,
-                                    fg_color=COLORS["sidebar"],
-                                    border_width=0)
-        self.sidebar.grid(row=0, column=0, sticky="nsew")
-        self.sidebar.grid_propagate(False)
-        self.sidebar.pack_propagate(False)
-        self.grid_columnconfigure(0, minsize=self.sidebar_w_expanded, weight=0)
+        # === Full sidebar (expanded 250px) ===
+        self.sidebar_full = ctk.CTkFrame(self, width=self.sidebar_w_expanded,
+                                          corner_radius=0,
+                                          fg_color=COLORS["sidebar"],
+                                          border_width=0)
+        self.sidebar_full.grid(row=0, column=0, sticky="nsew")
+        self.sidebar_full.grid_propagate(False)
+        self.sidebar_full.pack_propagate(False)
 
-        # Brand row (logo + name)
-        self.brand_row = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        self.brand_row.pack(fill="x", pady=(18, 14), padx=12)
-
-        self.logo_badge = ctk.CTkFrame(self.brand_row, fg_color=COLORS["accent"],
-                                        corner_radius=8, width=32, height=32)
-        self.logo_badge.pack(side="left")
-        self.logo_badge.pack_propagate(False)
-        ctk.CTkLabel(self.logo_badge, text="HD", font=("Arial", 13, "bold"),
+        brand = ctk.CTkFrame(self.sidebar_full, fg_color="transparent")
+        brand.pack(fill="x", pady=(18, 14), padx=12)
+        logo = ctk.CTkFrame(brand, fg_color=COLORS["accent"], corner_radius=8,
+                            width=32, height=32)
+        logo.pack(side="left")
+        logo.pack_propagate(False)
+        ctk.CTkLabel(logo, text="HD", font=("Arial", 13, "bold"),
                      text_color="white").pack(expand=True)
+        ctk.CTkLabel(brand, text="TSQ QLGV", font=("Arial", 17, "bold"),
+                     text_color=COLORS["text"]).pack(side="left", padx=10)
 
-        self.lbl_brand = ctk.CTkLabel(self.brand_row, text="TSQ QLGV",
-                                       font=("Arial", 17, "bold"),
-                                       text_color=COLORS["text"])
-        self.lbl_brand.pack(side="left", padx=10)
-
-        # User info card
-        self.user_card = ctk.CTkFrame(self.sidebar, fg_color=COLORS["bg"],
+        self.user_card = ctk.CTkFrame(self.sidebar_full, fg_color=COLORS["bg"],
                                        corner_radius=10)
         self.user_card.pack(fill="x", padx=12, pady=(0, 12))
-
-        self.user_avatar = ctk.CTkFrame(self.user_card, fg_color="#CBD5E1",
-                                         corner_radius=18, width=36, height=36)
-        self.user_avatar.pack(side="left", padx=10, pady=8)
-        self.user_avatar.pack_propagate(False)
-        ctk.CTkLabel(self.user_avatar, text="GV", font=("Arial", 11, "bold"),
+        ava = ctk.CTkFrame(self.user_card, fg_color="#CBD5E1",
+                            corner_radius=18, width=36, height=36)
+        ava.pack(side="left", padx=10, pady=8)
+        ava.pack_propagate(False)
+        ctk.CTkLabel(ava, text="GV", font=("Arial", 11, "bold"),
                      text_color="white").pack(expand=True)
-
-        self.user_info = ctk.CTkFrame(self.user_card, fg_color="transparent")
-        self.user_info.pack(side="left", fill="x", expand=True, padx=(0, 8), pady=8)
-        self.lbl_user_name = ctk.CTkLabel(self.user_info,
+        info = ctk.CTkFrame(self.user_card, fg_color="transparent")
+        info.pack(side="left", fill="x", expand=True, padx=(0, 8), pady=8)
+        self.lbl_user_name = ctk.CTkLabel(info,
                                            text=self.config_data.get("user_name") or "Giảng viên",
                                            font=("Arial", 12, "bold"),
                                            text_color=COLORS["text"], anchor="w")
         self.lbl_user_name.pack(fill="x")
         email = self.config_data.get("user_email") or "Chưa thiết lập"
-        self.lbl_user_email = ctk.CTkLabel(self.user_info, text=email,
+        self.lbl_user_email = ctk.CTkLabel(info, text=email,
                                             font=("Arial", 10),
                                             text_color=COLORS["text_dim"], anchor="w")
         self.lbl_user_email.pack(fill="x")
 
-        self.sep1 = ctk.CTkFrame(self.sidebar, height=1, fg_color=COLORS["border"])
-        self.sep1.pack(fill="x", padx=12, pady=(0, 6))
+        ctk.CTkFrame(self.sidebar_full, height=1, fg_color=COLORS["border"]
+                     ).pack(fill="x", padx=12, pady=(0, 6))
 
-        self.btn_dashboard = self.create_nav_btn("🏠", "Bảng điều khiển",
-                                                  self.show_dashboard_frame)
-        self.btn_mgmt = self.create_nav_btn("👥", "Thông tin giảng viên",
-                                             self.show_mgmt_frame)
-        self.btn_plan = self.create_nav_btn("📅", "Kế hoạch ngày",
-                                             self.show_plan_frame)
-        self.btn_month = self.create_nav_btn("🗓", "Kế hoạch tháng",
-                                              self.show_month_frame)
-        self.btn_document = self.create_nav_btn("📂", "Tài liệu môn học",
-                                                 self.show_document_frame)
+        for key, icon, label, cmd_name in self._nav_defs:
+            if key == "settings":
+                ctk.CTkFrame(self.sidebar_full, height=1,
+                             fg_color=COLORS["border"]
+                             ).pack(fill="x", padx=12, pady=(8, 6))
+            btn = ctk.CTkButton(self.sidebar_full,
+                                 text=f"{icon}   {label}",
+                                 font=("Arial", 13),
+                                 height=40,
+                                 fg_color="transparent",
+                                 text_color=COLORS["text"],
+                                 anchor="w",
+                                 hover_color=COLORS["hover"],
+                                 command=getattr(self, cmd_name))
+            btn.pack(pady=2, padx=10, fill="x")
+            self._nav_full[key] = btn
 
-        self.sep2 = ctk.CTkFrame(self.sidebar, height=1, fg_color=COLORS["border"])
-        self.sep2.pack(fill="x", padx=12, pady=(8, 6))
+        # Toggle full → mini
+        toggle_row = ctk.CTkFrame(self.sidebar_full, fg_color="transparent")
+        toggle_row.pack(side="bottom", fill="x", padx=8, pady=(6, 10))
+        ctk.CTkButton(toggle_row, text="‹",
+                       width=32, height=32,
+                       font=("Arial", 20, "bold"),
+                       fg_color="transparent",
+                       text_color=COLORS["text_dim"],
+                       hover_color=COLORS["hover"],
+                       command=self.toggle_sidebar).pack(side="right")
 
-        self.btn_settings = self.create_nav_btn("⚙", "Cài đặt",
-                                                 self.show_settings_frame)
-
-        # Toggle button ở đáy sidebar (cạnh dưới)
-        self.toggle_row = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        self.toggle_row.pack(side="bottom", fill="x", padx=8, pady=(6, 10))
-        self.btn_toggle = ctk.CTkButton(self.toggle_row, text="‹",
-                                         width=32, height=32,
-                                         font=("Arial", 20, "bold"),
-                                         fg_color="transparent",
-                                         text_color=COLORS["text_dim"],
-                                         hover_color=COLORS["hover"],
-                                         command=self.toggle_sidebar)
-        self.btn_toggle.pack(side="right")
-
-        self.footer = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        self.footer.pack(side="bottom", fill="x", padx=12, pady=(12, 0))
-        self.lbl_time = ctk.CTkLabel(self.footer, text="",
+        footer_full = ctk.CTkFrame(self.sidebar_full, fg_color="transparent")
+        footer_full.pack(side="bottom", fill="x", padx=12, pady=(12, 0))
+        self.lbl_time = ctk.CTkLabel(footer_full, text="",
                                       font=("Arial", 11),
                                       text_color=COLORS["text_dim"],
                                       justify="left", anchor="w")
         self.lbl_time.pack(fill="x")
-        self.lbl_version = ctk.CTkLabel(self.footer, text="v2.0.0 · TSQ Teacher Manager",
-                                         font=("Arial", 9),
-                                         text_color=COLORS["text_dim"], anchor="w")
-        self.lbl_version.pack(fill="x", pady=(4, 0))
+        ctk.CTkLabel(footer_full, text="v2.0.0 · TSQ Teacher Manager",
+                     font=("Arial", 9),
+                     text_color=COLORS["text_dim"], anchor="w"
+                     ).pack(fill="x", pady=(4, 0))
 
-    def create_nav_btn(self, icon, label, cmd):
-        btn = ctk.CTkButton(self.sidebar, text=f"{icon}   {label}",
-                            font=("Arial", 13),
-                            height=40,
-                            fg_color="transparent", text_color=COLORS["text"],
-                            anchor="w", hover_color=COLORS["hover"], command=cmd)
-        btn.pack(pady=2, padx=10, fill="x")
-        self._nav_items.append((btn, icon, label))
-        return btn
+        # === Mini sidebar (collapsed 64px) ===
+        self.sidebar_mini = ctk.CTkFrame(self, width=self.sidebar_w_collapsed,
+                                          corner_radius=0,
+                                          fg_color=COLORS["sidebar"],
+                                          border_width=0)
+        self.sidebar_mini.grid(row=0, column=0, sticky="nsew")
+        self.sidebar_mini.grid_propagate(False)
+        self.sidebar_mini.pack_propagate(False)
+
+        # Logo only
+        logo_mini = ctk.CTkFrame(self.sidebar_mini, fg_color=COLORS["accent"],
+                                  corner_radius=8, width=32, height=32)
+        logo_mini.pack(pady=(20, 16))
+        logo_mini.pack_propagate(False)
+        ctk.CTkLabel(logo_mini, text="HD", font=("Arial", 13, "bold"),
+                     text_color="white").pack(expand=True)
+
+        for key, icon, label, cmd_name in self._nav_defs:
+            btn = ctk.CTkButton(self.sidebar_mini, text=icon,
+                                 font=("Arial", 15),
+                                 width=48, height=40,
+                                 fg_color="transparent",
+                                 text_color=COLORS["text"],
+                                 hover_color=COLORS["hover"],
+                                 command=getattr(self, cmd_name))
+            btn.pack(pady=2, padx=8, fill="x")
+            self._nav_mini[key] = btn
+
+        # Toggle mini → full
+        ctk.CTkButton(self.sidebar_mini, text="›",
+                       width=32, height=32,
+                       font=("Arial", 20, "bold"),
+                       fg_color="transparent",
+                       text_color=COLORS["text_dim"],
+                       hover_color=COLORS["hover"],
+                       command=self.toggle_sidebar
+                       ).pack(side="bottom", pady=(6, 10))
+
+        # Start in full mode; hide mini
+        self.sidebar_mini.grid_remove()
+        self.grid_columnconfigure(0, minsize=self.sidebar_w_expanded, weight=0)
 
     def toggle_sidebar(self):
         self.sidebar_expanded = not self.sidebar_expanded
-
         if self.sidebar_expanded:
-            new_w = self.sidebar_w_expanded
-            self.lbl_brand.pack(side="left", padx=10)
-            self.user_card.pack(fill="x", padx=12, pady=(0, 12),
-                                before=self.sep1)
-            self.footer.pack(side="bottom", fill="x", padx=12, pady=(12, 0))
-            for btn, icon, label in self._nav_items:
-                btn.configure(text=f"{icon}   {label}", anchor="w")
-                btn.pack_configure(padx=10)
-            self.btn_toggle.configure(text="‹")
-            self.btn_toggle.pack_configure(side="right")
+            self.sidebar_mini.grid_remove()
+            self.sidebar_full.grid()
+            self.grid_columnconfigure(0, minsize=self.sidebar_w_expanded, weight=0)
         else:
-            new_w = self.sidebar_w_collapsed
-            self.lbl_brand.pack_forget()
-            self.user_card.pack_forget()
-            self.footer.pack_forget()
-            for btn, icon, label in self._nav_items:
-                btn.configure(text=icon, anchor="center")
-                btn.pack_configure(padx=4)
-            self.btn_toggle.configure(text="›")
-            self.btn_toggle.pack_configure(side="top")
+            self.sidebar_full.grid_remove()
+            self.sidebar_mini.grid()
+            self.grid_columnconfigure(0, minsize=self.sidebar_w_collapsed, weight=0)
 
-        self.sidebar.configure(width=new_w)
-        self.grid_columnconfigure(0, minsize=new_w, weight=0)
-
-    def set_active_nav(self, active_btn):
-        nav_buttons = [
-            getattr(self, n, None)
-            for n in ("btn_dashboard", "btn_mgmt", "btn_plan", "btn_month",
-                      "btn_document", "btn_settings")
-        ]
-        for b in nav_buttons:
-            if b is None:
-                continue
-            if b is active_btn:
-                b.configure(fg_color=COLORS["accent"], text_color="white",
-                            hover_color="#1D4ED8",
-                            font=("Arial", 13, "bold"))
+    def set_active_nav(self, key):
+        for k in self._nav_full:
+            full_btn = self._nav_full[k]
+            mini_btn = self._nav_mini[k]
+            if k == key:
+                full_btn.configure(fg_color=COLORS["accent"], text_color="white",
+                                    hover_color="#1D4ED8",
+                                    font=("Arial", 13, "bold"))
+                mini_btn.configure(fg_color=COLORS["accent"], text_color="white",
+                                    hover_color="#1D4ED8")
             else:
-                b.configure(fg_color="transparent", text_color=COLORS["text"],
-                            hover_color=COLORS["hover"],
-                            font=("Arial", 13))
+                full_btn.configure(fg_color="transparent",
+                                    text_color=COLORS["text"],
+                                    hover_color=COLORS["hover"],
+                                    font=("Arial", 13))
+                mini_btn.configure(fg_color="transparent",
+                                    text_color=COLORS["text"],
+                                    hover_color=COLORS["hover"])
     def load_excel_smart(self, path, check_cols):
         try:
             raw = pd.read_excel(path, header=None)
@@ -1061,7 +1077,7 @@ class TeacherManagerPro(ctk.CTk):
     def show_month_frame(self):
         self.hide_all_frames()
         self.month_frame.pack(fill="both", expand=True)
-        self.set_active_nav(self.btn_month)
+        self.set_active_nav("month")
         self.render_month()
 
     def open_schedule_file(self):
@@ -1339,7 +1355,7 @@ class TeacherManagerPro(ctk.CTk):
     def show_mgmt_frame(self):
         self.hide_all_frames()
         self.mgmt_frame.pack(fill="both", expand=True)
-        self.set_active_nav(self.btn_mgmt)
+        self.set_active_nav("mgmt")
 
     def setup_dashboard_ui(self):
         header = ctk.CTkFrame(self.dashboard_frame, fg_color="transparent")
@@ -1441,7 +1457,7 @@ class TeacherManagerPro(ctk.CTk):
     def show_dashboard_frame(self):
         self.hide_all_frames()
         self.dashboard_frame.pack(fill="both", expand=True)
-        self.set_active_nav(self.btn_dashboard)
+        self.set_active_nav("dashboard")
         self.refresh_dashboard_stats()
 
     def refresh_dashboard_stats(self):
@@ -1594,7 +1610,7 @@ class TeacherManagerPro(ctk.CTk):
     def show_settings_frame(self):
         self.hide_all_frames()
         self.settings_frame.pack(fill="both", expand=True)
-        self.set_active_nav(self.btn_settings)
+        self.set_active_nav("settings")
 
     def save_settings(self):
         for key, var in self.settings_vars.items():
@@ -1779,7 +1795,7 @@ class TeacherManagerPro(ctk.CTk):
     def show_plan_frame(self):
         self.hide_all_frames()
         self.plan_frame.pack(fill="both", expand=True)
-        self.set_active_nav(self.btn_plan)
+        self.set_active_nav("plan")
 
     def render_plan(self):
         try:
