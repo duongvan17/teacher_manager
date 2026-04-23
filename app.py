@@ -744,7 +744,8 @@ class TeacherManagerPro(ctk.CTk):
                                     border_width=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_propagate(False)
-        self.grid_columnconfigure(0, minsize=self.sidebar_w_expanded)
+        self.sidebar.pack_propagate(False)
+        self.grid_columnconfigure(0, minsize=self.sidebar_w_expanded, weight=0)
 
         # Brand + toggle button
         self.brand_row = ctk.CTkFrame(self.sidebar, fg_color="transparent")
@@ -860,7 +861,8 @@ class TeacherManagerPro(ctk.CTk):
                 btn.pack_configure(padx=4)
             self.lbl_time.configure(font=("Arial", 9))
         self.sidebar.configure(width=new_w)
-        self.grid_columnconfigure(0, minsize=new_w)
+        self.grid_columnconfigure(0, minsize=new_w, weight=0)
+        self.sidebar.update_idletasks()
         self.update_idletasks()
 
     def set_active_nav(self, active_btn):
