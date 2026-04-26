@@ -764,33 +764,11 @@ class TeacherManagerPro(ctk.CTk):
         logo.pack_propagate(False)
         ctk.CTkLabel(logo, text="HD", font=("Arial", 13, "bold"),
                      text_color="white").pack(expand=True)
-        ctk.CTkLabel(brand, text="TSQ QLGV", font=("Arial", 17, "bold"),
+        ctk.CTkLabel(brand, text="TSQ QLGV", font=("Arial", 20, "bold"),
                      text_color=COLORS["text"]).pack(side="left", padx=10)
 
-        self.user_card = ctk.CTkFrame(self.sidebar_full, fg_color=COLORS["bg"],
-                                       corner_radius=10)
-        self.user_card.pack(fill="x", padx=12, pady=(0, 12))
-        ava = ctk.CTkFrame(self.user_card, fg_color="#CBD5E1",
-                            corner_radius=18, width=36, height=36)
-        ava.pack(side="left", padx=10, pady=8)
-        ava.pack_propagate(False)
-        ctk.CTkLabel(ava, text="GV", font=("Arial", 11, "bold"),
-                     text_color="white").pack(expand=True)
-        info = ctk.CTkFrame(self.user_card, fg_color="transparent")
-        info.pack(side="left", fill="x", expand=True, padx=(0, 8), pady=8)
-        self.lbl_user_name = ctk.CTkLabel(info,
-                                           text=self.config_data.get("user_name") or "Giảng viên",
-                                           font=("Arial", 12, "bold"),
-                                           text_color=COLORS["text"], anchor="w")
-        self.lbl_user_name.pack(fill="x")
-        email = self.config_data.get("user_email") or "Chưa thiết lập"
-        self.lbl_user_email = ctk.CTkLabel(info, text=email,
-                                            font=("Arial", 10),
-                                            text_color=COLORS["text_dim"], anchor="w")
-        self.lbl_user_email.pack(fill="x")
-
         ctk.CTkFrame(self.sidebar_full, height=1, fg_color=COLORS["border"]
-                     ).pack(fill="x", padx=12, pady=(0, 6))
+                     ).pack(fill="x", padx=12, pady=(4, 6))
 
         for key, icon, label, cmd_name in self._nav_defs:
             if key == "settings":
@@ -799,14 +777,14 @@ class TeacherManagerPro(ctk.CTk):
                              ).pack(fill="x", padx=12, pady=(8, 6))
             btn = ctk.CTkButton(self.sidebar_full,
                                  text=f"{icon}   {label}",
-                                 font=("Arial", 13),
-                                 height=40,
+                                 font=("Arial", 14),
+                                 height=44,
                                  fg_color="transparent",
                                  text_color=COLORS["text"],
                                  anchor="w",
                                  hover_color=COLORS["hover"],
                                  command=getattr(self, cmd_name))
-            btn.pack(pady=2, padx=10, fill="x")
+            btn.pack(pady=3, padx=10, fill="x")
             self._nav_full[key] = btn
 
         # Toggle full → mini
@@ -892,14 +870,14 @@ class TeacherManagerPro(ctk.CTk):
             if k == key:
                 full_btn.configure(fg_color=COLORS["accent"], text_color="white",
                                     hover_color="#1D4ED8",
-                                    font=("Arial", 13, "bold"))
+                                    font=("Arial", 14, "bold"))
                 mini_btn.configure(fg_color=COLORS["accent"], text_color="white",
                                     hover_color="#1D4ED8")
             else:
                 full_btn.configure(fg_color="transparent",
                                     text_color=COLORS["text"],
                                     hover_color=COLORS["hover"],
-                                    font=("Arial", 13))
+                                    font=("Arial", 14))
                 mini_btn.configure(fg_color="transparent",
                                     text_color=COLORS["text"],
                                     hover_color=COLORS["hover"])
@@ -924,7 +902,7 @@ class TeacherManagerPro(ctk.CTk):
         header = ctk.CTkFrame(self.document_frame, fg_color="transparent")
         header.pack(fill="x", pady=(0, 10))
 
-        ctk.CTkLabel(header, text="Tài liệu môn học", font=("Arial", 22, "bold"),
+        ctk.CTkLabel(header, text="Tài liệu môn học", font=("Arial", 26, "bold"),
                      text_color=COLORS["text"]).pack(side="left")
 
         ctk.CTkButton(header, text="Làm mới", width=100, height=32,
@@ -949,10 +927,10 @@ class TeacherManagerPro(ctk.CTk):
             style.theme_use("default")
         except Exception:
             pass
-        style.configure("Doc.Treeview", rowheight=30, font=("Segoe UI", 11),
+        style.configure("Doc.Treeview", rowheight=34, font=("Segoe UI", 13),
                         background="white", fieldbackground="white",
                         foreground=COLORS["text"], borderwidth=0)
-        style.configure("Doc.Treeview.Heading", font=("Segoe UI", 11, "bold"))
+        style.configure("Doc.Treeview.Heading", font=("Segoe UI", 13, "bold"))
         style.map("Doc.Treeview",
                   background=[("selected", COLORS["accent"])],
                   foreground=[("selected", "white")])
@@ -976,7 +954,7 @@ class TeacherManagerPro(ctk.CTk):
         header = ctk.CTkFrame(self.month_frame, fg_color="transparent")
         header.pack(fill="x", pady=(0, 10))
 
-        ctk.CTkLabel(header, text="Kế hoạch tháng", font=("Arial", 22, "bold"),
+        ctk.CTkLabel(header, text="Kế hoạch tháng", font=("Arial", 26, "bold"),
                      text_color=COLORS["text"]).pack(side="left")
 
         ctk.CTkButton(header, text="Làm mới", width=100, height=32,
@@ -1045,10 +1023,10 @@ class TeacherManagerPro(ctk.CTk):
             style.theme_use("default")
         except Exception:
             pass
-        style.configure("Month.Treeview", rowheight=36, font=("Segoe UI", 11),
+        style.configure("Month.Treeview", rowheight=40, font=("Segoe UI", 12),
                         background="white", fieldbackground="white",
                         foreground=COLORS["text"], borderwidth=0)
-        style.configure("Month.Treeview.Heading", font=("Segoe UI", 10, "bold"),
+        style.configure("Month.Treeview.Heading", font=("Segoe UI", 12, "bold"),
                         background="#E0E7FF", foreground=COLORS["text"],
                         padding=(4, 4))
         style.map("Month.Treeview", background=[("selected", COLORS["accent"])],
@@ -1320,7 +1298,39 @@ class TeacherManagerPro(ctk.CTk):
 
         search = self.mgmt_search.get().lower().strip()
 
-        count = 0
+        # Tự dò cột chức vụ
+        position_keys = ("CHỨC VỤ", "CHỨC DANH", "CHỨC VỤ HIỆN TẠI", "VỊ TRÍ")
+        sample = self.mgmt_data[0]
+        position_col = next((k for k in position_keys if k in sample), None)
+
+        # Thứ tự ưu tiên các chức vụ (lower-cased keyword → priority)
+        position_order = [
+            ("trưởng bộ môn", 0),
+            ("phó trưởng bộ môn", 1),
+            ("phó bộ môn", 1),
+            ("trưởng khoa", 2),
+            ("phó khoa", 3),
+            ("giảng viên", 4),
+        ]
+        OTHER_PRIORITY = 5
+
+        def get_priority(pos):
+            p = (pos or "").lower().strip()
+            for kw, pr in position_order:
+                if kw in p:
+                    return pr
+            return OTHER_PRIORITY
+
+        def normalize_position(pos):
+            p = (pos or "").strip()
+            if not p or p.lower() == "nan":
+                return "Khác"
+            return p
+
+        # Group by position
+        from collections import defaultdict
+        groups = defaultdict(list)
+        order_priority = {}
         for row in self.mgmt_data:
             name = str(row.get('HỌ VÀ TÊN', '')).strip()
             if not name or name.lower() == "nan":
@@ -1328,30 +1338,56 @@ class TeacherManagerPro(ctk.CTk):
             if search and search not in name.lower():
                 continue
 
-            card = ctk.CTkFrame(self.mgmt_scroll, fg_color=COLORS["card"],
-                                height=46, corner_radius=8,
-                                border_width=1, border_color=COLORS["border"])
-            card.pack(fill="x", pady=3, padx=2)
-            card.pack_propagate(False)
+            raw_pos = str(row.get(position_col, "")).strip() if position_col else ""
+            pos_label = normalize_position(raw_pos)
+            groups[pos_label].append(row)
+            order_priority[pos_label] = min(order_priority.get(pos_label,
+                                                                OTHER_PRIORITY),
+                                             get_priority(raw_pos))
 
-            ctk.CTkLabel(card, text=name, font=("Arial", 13, "bold"),
-                         text_color=COLORS["text"]).pack(side="left", padx=14)
+        sorted_groups = sorted(groups.items(),
+                                key=lambda x: (order_priority.get(x[0], OTHER_PRIORITY),
+                                               x[0].lower()))
 
-            rank = str(row.get('CẤP BẬC', '')).strip()
-            if rank and rank.lower() != "nan":
-                ctk.CTkLabel(card, text=rank, font=("Arial", 11),
-                             text_color=COLORS["text_dim"]).pack(side="left", padx=(0, 10))
+        total_shown = 0
+        for pos_label, members in sorted_groups:
+            # Group header
+            header = ctk.CTkFrame(self.mgmt_scroll, fg_color="transparent")
+            header.pack(fill="x", pady=(8, 4), padx=2)
+            ctk.CTkLabel(header,
+                          text=f"▸ {pos_label}  ({len(members)})",
+                          font=("Arial", 15, "bold"),
+                          text_color=COLORS["accent"], anchor="w"
+                          ).pack(side="left")
 
-            ctk.CTkButton(card, text="Chi tiết", width=80, height=28,
-                          fg_color=COLORS["accent"], hover_color="#1D4ED8",
-                          font=("Arial", 11, "bold"),
-                          command=lambda r=row: TeacherDetailWindow(self, r)
-                          ).pack(side="right", padx=10)
-            count += 1
+            for row in members:
+                name = str(row.get('HỌ VÀ TÊN', '')).strip()
+                card = ctk.CTkFrame(self.mgmt_scroll, fg_color=COLORS["card"],
+                                     height=52, corner_radius=8,
+                                     border_width=1, border_color=COLORS["border"])
+                card.pack(fill="x", pady=4, padx=2)
+                card.pack_propagate(False)
+
+                ctk.CTkLabel(card, text=name, font=("Arial", 15, "bold"),
+                              text_color=COLORS["text"]
+                              ).pack(side="left", padx=16)
+
+                rank = str(row.get('CẤP BẬC', '')).strip()
+                if rank and rank.lower() != "nan":
+                    ctk.CTkLabel(card, text=rank, font=("Arial", 13),
+                                  text_color=COLORS["text_dim"]
+                                  ).pack(side="left", padx=(0, 10))
+
+                ctk.CTkButton(card, text="Chi tiết", width=90, height=32,
+                               fg_color=COLORS["accent"], hover_color="#1D4ED8",
+                               font=("Arial", 13, "bold"),
+                               command=lambda r=row: TeacherDetailWindow(self, r)
+                               ).pack(side="right", padx=12)
+                total_shown += 1
 
         if hasattr(self, "mgmt_count"):
             total = len(self.mgmt_data)
-            self.mgmt_count.configure(text=f"{count}/{total} giảng viên")
+            self.mgmt_count.configure(text=f"{total_shown}/{total} giảng viên")
     def show_mgmt_frame(self):
         self.hide_all_frames()
         self.mgmt_frame.pack(fill="both", expand=True)
@@ -1360,10 +1396,10 @@ class TeacherManagerPro(ctk.CTk):
     def setup_dashboard_ui(self):
         header = ctk.CTkFrame(self.dashboard_frame, fg_color="transparent")
         header.pack(fill="x", pady=(0, 14))
-        ctk.CTkLabel(header, text="Bảng điều khiển", font=("Arial", 22, "bold"),
+        ctk.CTkLabel(header, text="Bảng điều khiển", font=("Arial", 26, "bold"),
                      text_color=COLORS["text"]).pack(side="left")
         ctk.CTkLabel(header, text=datetime.now().strftime("%A, %d/%m/%Y"),
-                     font=("Arial", 12), text_color=COLORS["text_dim"]
+                     font=("Arial", 14), text_color=COLORS["text_dim"]
                      ).pack(side="right")
 
         welcome = ctk.CTkFrame(self.dashboard_frame,
@@ -1371,17 +1407,17 @@ class TeacherManagerPro(ctk.CTk):
                                corner_radius=12, border_width=0)
         welcome.pack(fill="x", pady=(0, 14))
         welcome_pad = ctk.CTkFrame(welcome, fg_color="transparent")
-        welcome_pad.pack(fill="x", padx=18, pady=14)
+        welcome_pad.pack(fill="x", padx=20, pady=16)
         ctk.CTkLabel(welcome_pad,
-                     text=f"Xin chào, {self.config_data.get('user_name') or 'Giảng viên'} 👋",
-                     font=("Arial", 16, "bold"),
+                     text="Xin chào 👋",
+                     font=("Arial", 20, "bold"),
                      text_color=COLORS["accent"], anchor="w"
                      ).pack(fill="x")
         ctk.CTkLabel(welcome_pad,
                      text="Quản lý thông tin giảng viên, kế hoạch giảng dạy và tài liệu môn học.",
-                     font=("Arial", 12),
+                     font=("Arial", 14),
                      text_color=COLORS["text_dim"], anchor="w"
-                     ).pack(fill="x", pady=(2, 0))
+                     ).pack(fill="x", pady=(4, 0))
 
         grid = ctk.CTkFrame(self.dashboard_frame, fg_color="transparent")
         grid.pack(fill="x", pady=(0, 14))
@@ -1401,21 +1437,21 @@ class TeacherManagerPro(ctk.CTk):
             card.grid(row=0, column=i, sticky="nsew", padx=6)
 
             top = ctk.CTkFrame(card, fg_color="transparent")
-            top.pack(fill="x", padx=16, pady=(14, 4))
-            ctk.CTkLabel(top, text=title, font=("Arial", 11),
+            top.pack(fill="x", padx=18, pady=(16, 4))
+            ctk.CTkLabel(top, text=title, font=("Arial", 13),
                          text_color=COLORS["text_dim"], anchor="w"
                          ).pack(side="left", fill="x", expand=True)
             icon_bg = ctk.CTkFrame(top, fg_color=color, corner_radius=8,
-                                   width=32, height=32)
+                                   width=38, height=38)
             icon_bg.pack(side="right")
             icon_bg.pack_propagate(False)
-            ctk.CTkLabel(icon_bg, text=icon, font=("Arial", 14),
+            ctk.CTkLabel(icon_bg, text=icon, font=("Arial", 17),
                          text_color="white").pack(expand=True)
 
             value_lbl = ctk.CTkLabel(card, text=value,
-                                     font=("Arial", 26, "bold"),
+                                     font=("Arial", 32, "bold"),
                                      text_color=COLORS["text"], anchor="w")
-            value_lbl.pack(fill="x", padx=16, pady=(0, 14))
+            value_lbl.pack(fill="x", padx=18, pady=(0, 16))
             self.stat_widgets[key] = value_lbl
 
         shortcuts = ctk.CTkFrame(self.dashboard_frame, fg_color=COLORS["card"],
@@ -1423,12 +1459,12 @@ class TeacherManagerPro(ctk.CTk):
                                  border_color=COLORS["border"])
         shortcuts.pack(fill="both", expand=True)
         ctk.CTkLabel(shortcuts, text="Truy cập nhanh",
-                     font=("Arial", 14, "bold"),
+                     font=("Arial", 17, "bold"),
                      text_color=COLORS["text"], anchor="w"
-                     ).pack(fill="x", padx=18, pady=(14, 8))
+                     ).pack(fill="x", padx=20, pady=(16, 10))
 
         shortcut_grid = ctk.CTkFrame(shortcuts, fg_color="transparent")
-        shortcut_grid.pack(fill="x", padx=12, pady=(0, 16))
+        shortcut_grid.pack(fill="x", padx=12, pady=(0, 18))
         for i in range(4):
             shortcut_grid.grid_columnconfigure(i, weight=1, uniform="short")
 
@@ -1442,16 +1478,16 @@ class TeacherManagerPro(ctk.CTk):
             btn = ctk.CTkButton(shortcut_grid, text="",
                                 fg_color="transparent",
                                 hover_color=COLORS["hover"],
-                                corner_radius=10, height=70,
+                                corner_radius=10, height=80,
                                 border_width=1, border_color=COLORS["border"],
                                 command=cmd)
             btn.grid(row=0, column=i, sticky="ew", padx=6, pady=4)
 
             inner = ctk.CTkFrame(btn, fg_color="transparent")
             inner.place(relx=0.5, rely=0.5, anchor="center")
-            ctk.CTkLabel(inner, text=title, font=("Arial", 12, "bold"),
+            ctk.CTkLabel(inner, text=title, font=("Arial", 14, "bold"),
                          text_color=COLORS["text"]).pack()
-            ctk.CTkLabel(inner, text=sub, font=("Arial", 10),
+            ctk.CTkLabel(inner, text=sub, font=("Arial", 12),
                          text_color=COLORS["text_dim"]).pack()
 
     def show_dashboard_frame(self):
@@ -1492,7 +1528,7 @@ class TeacherManagerPro(ctk.CTk):
     def setup_settings_ui(self):
         header = ctk.CTkFrame(self.settings_frame, fg_color="transparent")
         header.pack(fill="x", pady=(0, 14))
-        ctk.CTkLabel(header, text="Cài đặt", font=("Arial", 22, "bold"),
+        ctk.CTkLabel(header, text="Cài đặt", font=("Arial", 26, "bold"),
                      text_color=COLORS["text"]).pack(side="left")
         ctk.CTkLabel(header,
                      text="Cấu hình đường dẫn file và tuỳ chọn hiển thị",
@@ -1550,19 +1586,6 @@ class TeacherManagerPro(ctk.CTk):
                      mode="file", filetypes=(("Excel", "*.xlsx *.xls"),))
         add_file_row(files_section, "Thư mục tài liệu", "document_folder",
                      mode="folder")
-
-        user_section = add_section("Thông tin người dùng")
-        for label, key in (("Tên hiển thị", "user_name"), ("Email", "user_email")):
-            row = ctk.CTkFrame(user_section, fg_color="transparent")
-            row.pack(fill="x", padx=18, pady=(0, 10))
-            ctk.CTkLabel(row, text=label, font=("Arial", 12),
-                         text_color=COLORS["text"], width=170, anchor="w"
-                         ).pack(side="left")
-            var = tk.StringVar(value=self.config_data.get(key, ""))
-            self.settings_vars[key] = var
-            ctk.CTkEntry(row, textvariable=var, height=34,
-                         border_color=COLORS["border"]
-                         ).pack(side="left", fill="x", expand=True)
 
         pref_section = add_section("Hiển thị")
         row = ctk.CTkFrame(pref_section, fg_color="transparent")
@@ -1623,8 +1646,6 @@ class TeacherManagerPro(ctk.CTk):
             self.settings_status.configure(
                 text=f"Đã lưu · {datetime.now().strftime('%H:%M:%S')}",
                 text_color=COLORS["success"])
-            self.lbl_user_name.configure(text=self.config_data.get("user_name") or "Giảng viên")
-            self.lbl_user_email.configure(text=self.config_data.get("user_email") or "Chưa thiết lập")
             try:
                 ctk.set_appearance_mode(self.config_data.get("appearance", "light"))
             except Exception:
@@ -1649,15 +1670,16 @@ class TeacherManagerPro(ctk.CTk):
         self.clear_right_frame()
         header = ctk.CTkFrame(self.mgmt_frame, fg_color="transparent")
         header.pack(fill="x", pady=(0, 10))
-        ctk.CTkLabel(header, text="Thông tin giảng viên", font=("Arial", 22, "bold"),
+        ctk.CTkLabel(header, text="Thông tin giảng viên", font=("Arial", 26, "bold"),
                      text_color=COLORS["text"]).pack(side="left")
-        self.mgmt_count = ctk.CTkLabel(header, text="", font=("Arial", 12),
+        self.mgmt_count = ctk.CTkLabel(header, text="", font=("Arial", 13),
                                        text_color=COLORS["text_dim"])
         self.mgmt_count.pack(side="right")
 
         self.mgmt_search = ctk.CTkEntry(self.mgmt_frame,
                                         placeholder_text="Tìm theo tên giảng viên...",
-                                        height=36, border_color=COLORS["border"])
+                                        height=40, font=("Arial", 13),
+                                        border_color=COLORS["border"])
         self.mgmt_search.pack(fill="x", pady=(0, 10))
         self.mgmt_search.bind("<KeyRelease>", lambda e: self.render_mgmt())
 
@@ -1848,19 +1870,19 @@ class TeacherManagerPro(ctk.CTk):
 
             # Header bảng
             header_f = ctk.CTkFrame(self.plan_scroll, fg_color="#E0E7FF",
-                                    height=34, corner_radius=0)
+                                    height=40, corner_radius=0)
             header_f.pack(fill="x", pady=(0, 4))
             header_f.pack_propagate(False)
             COLS = [("Họ và tên", 0.02, 0.26), ("Môn", 0.29, 0.08),
                     ("Tiết 1-2", 0.40, 0.15), ("Tiết 3-4", 0.55, 0.15),
                     ("Tiết 5-6", 0.70, 0.15), ("Tiết 7-8", 0.85, 0.15)]
             for txt, rx, rw in COLS:
-                ctk.CTkLabel(header_f, text=txt, font=("Arial", 11, "bold"),
+                ctk.CTkLabel(header_f, text=txt, font=("Arial", 13, "bold"),
                              text_color=COLORS["text"], anchor="w"
                              ).place(relx=rx, rely=0.5, anchor="w", relwidth=rw)
 
             # Render từng nhóm GV
-            for gi, g in enumerate(groups):
+            for g in groups:
                 primary_sub = g["rows"][0]["subject"].upper() if g["rows"] else ""
                 border_c = SUB_COLORS.get(primary_sub, (None, None, "#CBD5E1"))[2]
 
@@ -1873,14 +1895,14 @@ class TeacherManagerPro(ctk.CTk):
                 for ri, entry in enumerate(g["rows"]):
                     row_bg = "white" if ri % 2 == 0 else "#F8FAFC"
                     row_f = ctk.CTkFrame(card, fg_color=row_bg,
-                                          height=36, corner_radius=0)
+                                          height=42, corner_radius=0)
                     row_f.pack(fill="x", padx=2, pady=(2 if ri == 0 else 0,
                                                         2 if ri == len(g["rows"]) - 1 else 0))
                     row_f.pack_propagate(False)
 
                     display_name = g["name"] if ri == 0 else ""
                     ctk.CTkLabel(row_f, text=display_name,
-                                 font=("Arial", 13, "bold"),
+                                 font=("Arial", 15, "bold"),
                                  text_color=COLORS["text"], anchor="w"
                                  ).place(relx=0.02, rely=0.5, anchor="w",
                                          relwidth=0.28)
@@ -1890,21 +1912,21 @@ class TeacherManagerPro(ctk.CTk):
                         bg_c, fg_c, _ = SUB_COLORS.get(subject.upper(),
                                                         ("#F1F5F9", "#475569", "#94A3B8"))
                         badge = ctk.CTkFrame(row_f, fg_color=bg_c,
-                                              corner_radius=10, height=22)
+                                              corner_radius=10, height=26)
                         badge.place(relx=0.29, rely=0.5, anchor="w",
                                     relwidth=0.08)
                         ctk.CTkLabel(badge, text=subject,
-                                      font=("Arial", 10, "bold"),
+                                      font=("Arial", 12, "bold"),
                                       text_color=fg_c).pack(expand=True)
 
                     for idx, val in enumerate(entry["slots"]):
                         if val:
                             tile = ctk.CTkFrame(row_f, fg_color="#EFF6FF",
-                                                 corner_radius=6, height=26)
+                                                 corner_radius=6, height=30)
                             tile.place(relx=0.40 + (idx * 0.15), rely=0.5,
                                        anchor="w", relwidth=0.14)
                             ctk.CTkLabel(tile, text=val,
-                                          font=("Arial", 11, "bold"),
+                                          font=("Arial", 13, "bold"),
                                           text_color=COLORS["accent"]
                                           ).pack(expand=True)
 
@@ -1917,15 +1939,15 @@ class TeacherManagerPro(ctk.CTk):
         header.pack(fill="x", pady=(0, 10))
 
         ctk.CTkLabel(header, text="Kế hoạch giảng dạy trong ngày",
-                     font=("Arial", 20, "bold"), text_color=COLORS["text"]).pack(side="left")
+                     font=("Arial", 24, "bold"), text_color=COLORS["text"]).pack(side="left")
 
-        ctk.CTkButton(header, text="Làm mới", width=100, height=32,
+        ctk.CTkButton(header, text="Làm mới", width=110, height=36,
                       fg_color=COLORS["accent"], hover_color="#1D4ED8",
-                      font=("Arial", 11, "bold"),
+                      font=("Arial", 13, "bold"),
                       command=self.check_realtime_status).pack(side="right")
 
         self.status_indicator = ctk.CTkLabel(header, text="● Sẵn sàng",
-                                             font=("Arial", 11),
+                                             font=("Arial", 13),
                                              text_color=COLORS["success"])
         self.status_indicator.pack(side="right", padx=(0, 12))
 
