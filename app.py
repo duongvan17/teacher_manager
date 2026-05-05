@@ -128,23 +128,33 @@ def get_base_path():
     # Nếu đang chạy code .py trong VS Code
     return os.path.dirname(os.path.abspath(__file__))
 
-def auto_update_schedule():
+def auto_update_schedule(schedule_file=None):
     # 1. Lấy ngày hiện tại
     today = datetime.now()
     date_str = today.strftime('%Y-%m-%d')
     vn_date = today.strftime('%d/%m/%Y')
 
     base_path = get_base_path()
-    
-    # 2. Tự động tìm file có tên chứa "schedule" trong thư mục
-    search_pattern = os.path.join(base_path, "schedule*.*")
-    files = glob.glob(search_pattern)
-    
-    if not files:
-        print(f"[auto_update_schedule] Không tìm thấy file 'schedule' nào trong: {base_path}")
-        return
 
-    file_path = files[0]
+    # 2. Lấy đường dẫn file kế hoạch tháng (theo config nếu có)
+    file_path = None
+    if schedule_file:
+        candidate = schedule_file if os.path.isabs(schedule_file) \
+            else os.path.join(base_path, schedule_file)
+        if os.path.exists(candidate):
+            file_path = candidate
+
+    if file_path is None:
+        # fallback: tìm file schedule*.xlsx trong thư mục
+        search_pattern = os.path.join(base_path, "schedule*.*")
+        files = glob.glob(search_pattern)
+        if files:
+            file_path = files[0]
+
+    if not file_path:
+        print(f"[auto_update_schedule] Không tìm thấy file kế hoạch tháng. "
+              f"Vào tab Cài đặt để chọn lại.")
+        return
 
     try:
         # 3. Đọc dữ liệu
@@ -232,8 +242,6 @@ def auto_update_schedule():
     except Exception as e:
         print(f"[auto_update_schedule] Lỗi hệ thống: {e}")
 
-if __name__ == "__main__":
-    auto_update_schedule()
 # another
 WEEKDAY_MAP = {
     0: "H",
@@ -505,8 +513,11 @@ class TeacherManagerPro(ctk.CTk):
                                                     x[0].lower())):
             full = os.path.join(base_path, name)
             if isinstance(content, dict):
+                # Mở sẵn folder cấp đầu để khách thấy nội dung ngay
+                is_top = (parent == "")
                 item = self.doc_tree.insert(parent, "end",
-                                            text=f"  📁  {name}", open=False)
+                                            text=f"  📁  {name}",
+                                            open=is_top)
                 self._populate_doc_tree(item, content, full)
             else:
                 item = self.doc_tree.insert(parent, "end",
@@ -727,6 +738,13 @@ class TeacherManagerPro(ctk.CTk):
         self.show_dashboard_frame()
         self.update_time()
 
+        # Sinh file KeHoach_Ngay từ schedule (đọc theo config)
+        if self.config_data.get("auto_update_schedule", True):
+            try:
+                auto_update_schedule(self.config_data.get("schedule_file"))
+            except Exception as e:
+                print(f"[init] auto_update_schedule lỗi: {e}")
+
         self.check_realtime_status()
         self.teacher_db = []
         self.after(100, self.auto_load_mgmt_file)
@@ -741,7 +759,7 @@ class TeacherManagerPro(ctk.CTk):
             ("mgmt", "👥", "Thông tin giảng viên", "show_mgmt_frame"),
             ("plan", "📅", "Kế hoạch ngày", "show_plan_frame"),
             ("month", "🗓", "Kế hoạch tháng", "show_month_frame"),
-            ("document", "📂", "Tài liệu môn học", "show_document_frame"),
+            ("document", "📂", "Môn học", "show_document_frame"),
             ("settings", "⚙", "Cài đặt", "show_settings_frame"),
         ]
         self._nav_full = {}   # key -> CTkButton (full)
@@ -902,7 +920,7 @@ class TeacherManagerPro(ctk.CTk):
         header = ctk.CTkFrame(self.document_frame, fg_color="transparent")
         header.pack(fill="x", pady=(0, 10))
 
-        ctk.CTkLabel(header, text="Tài liệu môn học", font=("Arial", 26, "bold"),
+        ctk.CTkLabel(header, text="Môn học", font=("Arial", 26, "bold"),
                      text_color=COLORS["text"]).pack(side="left")
 
         ctk.CTkButton(header, text="Làm mới", width=100, height=32,
@@ -1011,10 +1029,25 @@ class TeacherManagerPro(ctk.CTk):
                                         text_color=COLORS["text_dim"], anchor="e")
         self.month_info.pack(side="right", padx=10, pady=8)
 
+        # Tiêu đề như trong file Excel
+        excel_title = ctk.CTkFrame(self.month_frame, fg_color="white",
+                                    corner_radius=8, border_width=1,
+                                    border_color=COLORS["border"])
+        excel_title.pack(fill="x", pady=(0, 0))
+        self.lbl_excel_title = ctk.CTkLabel(excel_title,
+                                             text="KẾ HOẠCH PHÂN CÔNG GIẢNG DẠY",
+                                             font=("Times New Roman", 18, "bold"),
+                                             text_color=COLORS["text"])
+        self.lbl_excel_title.pack(pady=(12, 2))
+        self.lbl_excel_subtitle = ctk.CTkLabel(excel_title, text="Tháng — Năm —",
+                                                font=("Times New Roman", 13),
+                                                text_color=COLORS["text_dim"])
+        self.lbl_excel_subtitle.pack(pady=(0, 12))
+
         container = ctk.CTkFrame(self.month_frame, fg_color=COLORS["card"],
-                                 border_width=1, border_color=COLORS["border"],
-                                 corner_radius=8)
-        container.pack(fill="both", expand=True)
+                                 border_width=1, border_color="#94A3B8",
+                                 corner_radius=0)
+        container.pack(fill="both", expand=True, pady=(0, 0))
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
 
@@ -1023,14 +1056,24 @@ class TeacherManagerPro(ctk.CTk):
             style.theme_use("default")
         except Exception:
             pass
-        style.configure("Month.Treeview", rowheight=40, font=("Segoe UI", 12),
+        # Excel-like: kẻ ô + heading đậm
+        style.configure("Month.Treeview", rowheight=42,
+                        font=("Times New Roman", 12),
                         background="white", fieldbackground="white",
-                        foreground=COLORS["text"], borderwidth=0)
-        style.configure("Month.Treeview.Heading", font=("Segoe UI", 12, "bold"),
-                        background="#E0E7FF", foreground=COLORS["text"],
-                        padding=(4, 4))
-        style.map("Month.Treeview", background=[("selected", COLORS["accent"])],
-                  foreground=[("selected", "white")])
+                        foreground=COLORS["text"],
+                        borderwidth=1, relief="solid")
+        style.configure("Month.Treeview.Heading",
+                        font=("Times New Roman", 12, "bold"),
+                        background="#1E40AF", foreground="white",
+                        padding=(6, 8),
+                        borderwidth=1, relief="solid")
+        style.map("Month.Treeview.Heading",
+                  background=[("active", "#1E3A8A")])
+        style.map("Month.Treeview", background=[("selected", "#FEF08A")],
+                  foreground=[("selected", COLORS["text"])])
+        style.layout("Month.Treeview", [
+            ("Treeview.treearea", {"sticky": "nswe"})
+        ])
 
         self.month_tree = ttk.Treeview(container, style="Month.Treeview",
                                         show="headings")
@@ -1045,12 +1088,12 @@ class TeacherManagerPro(ctk.CTk):
         hsb.grid(row=1, column=0, sticky="ew")
 
         self.month_tree.tag_configure("alt", background="#F8FAFC")
-        self.month_tree.tag_configure("group_top", background="#EFF6FF",
-                                       font=("Segoe UI", 11, "bold"))
-        self.month_tree.tag_configure("subj_BC", background="#EFF6FF")
-        self.month_tree.tag_configure("subj_DH", background="#F0FDF4")
-        self.month_tree.tag_configure("subj_KB", background="#FAF5FF")
-        self.month_tree.tag_configure("subj_DN", background="#FFFBEB")
+        self.month_tree.tag_configure("group_top", background="#DBEAFE",
+                                       font=("Times New Roman", 12, "bold"))
+        self.month_tree.tag_configure("subj_BC", background="#FFFFFF")
+        self.month_tree.tag_configure("subj_DH", background="#FFFFFF")
+        self.month_tree.tag_configure("subj_KB", background="#FFFFFF")
+        self.month_tree.tag_configure("subj_DN", background="#FFFFFF")
 
     def show_month_frame(self):
         self.hide_all_frames()
@@ -1084,6 +1127,19 @@ class TeacherManagerPro(ctk.CTk):
 
         try:
             import re as _re
+
+            # Đọc 3 dòng đầu để lấy tiêu đề tháng/năm
+            try:
+                head_raw = pd.read_excel(path, header=None, nrows=3).fillna("")
+                head_text = " ".join(str(v) for row in head_raw.values for v in row)
+                m_year = _re.search(r"Th[áa]ng\s+(\d{1,2}).*?N[ăa]m\s+(\d{4})",
+                                     head_text, _re.IGNORECASE)
+                if m_year:
+                    self.lbl_excel_subtitle.configure(
+                        text=f"Tháng {m_year.group(1)} Năm {m_year.group(2)}")
+            except Exception:
+                pass
+
             raw = pd.read_excel(path, skiprows=3, header=None)
             raw = raw.dropna(how="all").reset_index(drop=True)
             if len(raw) < 2:
@@ -1263,7 +1319,7 @@ class TeacherManagerPro(ctk.CTk):
                         values[2] = ""
                     else:
                         values[0] = t["tt"]
-                        values[1] = t["name"]
+                        values[1] = t["name"].upper()
                         values[2] = t["subject"]
 
                     tags = []
@@ -1361,7 +1417,7 @@ class TeacherManagerPro(ctk.CTk):
                           ).pack(side="left")
 
             for row in members:
-                name = str(row.get('HỌ VÀ TÊN', '')).strip()
+                name = str(row.get('HỌ VÀ TÊN', '')).strip().upper()
                 card = ctk.CTkFrame(self.mgmt_scroll, fg_color=COLORS["card"],
                                      height=52, corner_radius=8,
                                      border_width=1, border_color=COLORS["border"])
@@ -1472,7 +1528,7 @@ class TeacherManagerPro(ctk.CTk):
             ("Thông tin giảng viên", "Xem danh sách", self.show_mgmt_frame),
             ("Kế hoạch ngày", "Lịch hôm nay", self.show_plan_frame),
             ("Kế hoạch tháng", "Bảng tháng", self.show_month_frame),
-            ("Tài liệu môn", "Mở thư mục", self.show_document_frame),
+            ("Môn học", "Mở thư mục", self.show_document_frame),
         ]
         for i, (title, sub, cmd) in enumerate(shortcut_defs):
             btn = ctk.CTkButton(shortcut_grid, text="",
@@ -1900,7 +1956,7 @@ class TeacherManagerPro(ctk.CTk):
                                                         2 if ri == len(g["rows"]) - 1 else 0))
                     row_f.pack_propagate(False)
 
-                    display_name = g["name"] if ri == 0 else ""
+                    display_name = g["name"].upper() if ri == 0 else ""
                     ctk.CTkLabel(row_f, text=display_name,
                                  font=("Arial", 15, "bold"),
                                  text_color=COLORS["text"], anchor="w"
