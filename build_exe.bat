@@ -21,6 +21,11 @@ pyinstaller --noconfirm --onefile --windowed ^
   --hidden-import=pandas ^
   --hidden-import=tkinter ^
   --hidden-import=tkinter.ttk ^
+  --exclude-module matplotlib ^
+  --exclude-module scipy ^
+  --exclude-module pytest ^
+  --exclude-module IPython ^
+  --exclude-module notebook ^
   --add-data "extractor.py;." ^
   --add-data "app.ico;." ^
   app.py
