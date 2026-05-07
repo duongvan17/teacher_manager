@@ -498,31 +498,48 @@ class TeacherManagerPro(ctk.CTk):
         if not os.path.exists(folder):
             self.doc_tree.insert("", "end",
                 text=f"  Không tìm thấy '{folder}'. Mở tab Cài đặt để chọn lại.")
+            if hasattr(self, "doc_count"):
+                self.doc_count.configure(text="")
             return
 
         tree = self.build_tree(folder)
         if not tree:
             self.doc_tree.insert("", "end", text="  Thư mục trống")
+            if hasattr(self, "doc_count"):
+                self.doc_count.configure(text="0 tài liệu")
             return
 
-        self._populate_doc_tree("", tree, folder)
+        total = self._populate_doc_tree("", tree, folder)
+        if hasattr(self, "doc_count"):
+            self.doc_count.configure(text=f"{total} tài liệu")
 
     def _populate_doc_tree(self, parent, tree, base_path):
+        total = 0
         for name, content in sorted(tree.items(),
                                      key=lambda x: (not isinstance(x[1], dict),
-                                                    x[0].lower())):
+                                                     x[0].lower())):
             full = os.path.join(base_path, name)
             if isinstance(content, dict):
-                # Mở sẵn folder cấp đầu để khách thấy nội dung ngay
                 is_top = (parent == "")
                 item = self.doc_tree.insert(parent, "end",
-                                            text=f"  📁  {name}",
-                                            open=is_top)
-                self._populate_doc_tree(item, content, full)
+                                             text=f"  📁  {name}",
+                                             open=is_top)
+                total += self._populate_doc_tree(item, content, full)
             else:
+                ext = os.path.splitext(name)[1].lower()
+                icon = {
+                    ".docx": "📝", ".doc": "📝",
+                    ".xlsx": "📊", ".xls": "📊", ".csv": "📊",
+                    ".pdf": "📕",
+                    ".pptx": "📽", ".ppt": "📽",
+                    ".txt": "📃", ".md": "📃",
+                    ".png": "🖼", ".jpg": "🖼", ".jpeg": "🖼",
+                }.get(ext, "📄")
                 item = self.doc_tree.insert(parent, "end",
-                                            text=f"  📄  {name}")
+                                             text=f"  {icon}  {name}")
                 self._doc_paths[item] = full
+                total += 1
+        return total
 
     def _on_doc_tree_activate(self, event=None):
         sel = self.doc_tree.selection()
@@ -923,20 +940,47 @@ class TeacherManagerPro(ctk.CTk):
         ctk.CTkLabel(header, text="Môn học", font=("Arial", 26, "bold"),
                      text_color=COLORS["text"]).pack(side="left")
 
-        ctk.CTkButton(header, text="Làm mới", width=100, height=32,
+        self.doc_count = ctk.CTkLabel(header, text="", font=("Arial", 13),
+                                       text_color=COLORS["text_dim"])
+        self.doc_count.pack(side="right", padx=(0, 12))
+
+        ctk.CTkButton(header, text="Làm mới", width=100, height=36,
                       fg_color=COLORS["accent"], hover_color="#1D4ED8",
+                      font=("Arial", 13, "bold"),
                       command=self.render_documents).pack(side="right")
 
         self.doc_status = ctk.CTkLabel(self.document_frame, text="",
-                                        font=("Arial", 11),
+                                        font=("Arial", 12),
                                         text_color=COLORS["text_dim"],
                                         anchor="w")
-        self.doc_status.pack(fill="x", pady=(0, 6))
+        self.doc_status.pack(fill="x", pady=(0, 8))
 
-        container = ctk.CTkFrame(self.document_frame, fg_color=COLORS["card"],
-                                  corner_radius=10, border_width=1,
-                                  border_color=COLORS["border"])
-        container.pack(fill="both", expand=True)
+        # Card wrapper chứa treeview
+        wrapper = ctk.CTkFrame(self.document_frame,
+                                fg_color=COLORS["card"],
+                                corner_radius=12,
+                                border_width=1,
+                                border_color=COLORS["border"])
+        wrapper.pack(fill="both", expand=True)
+
+        # Header strip xanh đậm như header bảng Excel
+        wrap_header = ctk.CTkFrame(wrapper, fg_color=COLORS["accent"],
+                                    corner_radius=0, height=46)
+        wrap_header.pack(fill="x", padx=1, pady=(1, 0))
+        wrap_header.pack_propagate(False)
+        ctk.CTkLabel(wrap_header, text="  📁  Cây thư mục tài liệu",
+                      font=("Arial", 14, "bold"),
+                      text_color="white", anchor="w"
+                      ).pack(side="left", padx=14, fill="y")
+        ctk.CTkLabel(wrap_header,
+                      text="Bấm đôi vào tệp để mở  ",
+                      font=("Arial", 11),
+                      text_color="#DBEAFE"
+                      ).pack(side="right", padx=14)
+
+        container = ctk.CTkFrame(wrapper, fg_color="white",
+                                  corner_radius=0, border_width=0)
+        container.pack(fill="both", expand=True, padx=1, pady=(0, 1))
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
 
@@ -945,24 +989,29 @@ class TeacherManagerPro(ctk.CTk):
             style.theme_use("default")
         except Exception:
             pass
-        style.configure("Doc.Treeview", rowheight=34, font=("Segoe UI", 13),
-                        background="white", fieldbackground="white",
-                        foreground=COLORS["text"], borderwidth=0)
-        style.configure("Doc.Treeview.Heading", font=("Segoe UI", 13, "bold"))
+        style.configure("Doc.Treeview",
+                        rowheight=38,
+                        font=("Segoe UI", 13),
+                        background="white",
+                        fieldbackground="white",
+                        foreground=COLORS["text"],
+                        borderwidth=0)
+        style.configure("Doc.Treeview.Heading",
+                        font=("Segoe UI", 13, "bold"))
         style.map("Doc.Treeview",
-                  background=[("selected", COLORS["accent"])],
-                  foreground=[("selected", "white")])
+                  background=[("selected", "#DBEAFE")],
+                  foreground=[("selected", COLORS["accent"])])
 
         self.doc_tree = ttk.Treeview(container, style="Doc.Treeview",
                                       show="tree", selectmode="browse")
         vsb = ttk.Scrollbar(container, orient="vertical",
-                            command=self.doc_tree.yview)
+                             command=self.doc_tree.yview)
         self.doc_tree.configure(yscrollcommand=vsb.set)
-        self.doc_tree.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
-        vsb.grid(row=0, column=1, sticky="ns")
+        self.doc_tree.grid(row=0, column=0, sticky="nsew",
+                            padx=(2, 0), pady=2)
+        vsb.grid(row=0, column=1, sticky="ns", padx=(0, 2), pady=2)
 
-        self.doc_tree.column("#0", width=700, stretch=True)
-
+        self.doc_tree.column("#0", width=900, stretch=True)
         self.doc_tree.bind("<Double-1>", self._on_doc_tree_activate)
         self.doc_tree.bind("<Return>", self._on_doc_tree_activate)
 
@@ -1207,7 +1256,7 @@ class TeacherManagerPro(ctk.CTk):
                                            anchor="w", stretch=False)
                 elif "MÔN" in up:
                     title = "Môn"
-                    self.month_tree.column(cid, width=60, minwidth=50,
+                    self.month_tree.column(cid, width=110, minwidth=80,
                                            anchor="center", stretch=False)
                 elif _re.match(r"(\d{4})-(\d{2})-(\d{2})", str(orig)):
                     label, is_weekend, is_today = fmt_date_col(orig)
@@ -1270,11 +1319,51 @@ class TeacherManagerPro(ctk.CTk):
 
             teachers = [t for t in teachers if t["rows"]]
 
-            subjects_seen = set()
+            # Gộp các block cùng tên GV: 1 GV dạy nhiều môn → 1 entry,
+            # hợp nhất rows theo cặp tiết (1-2, 3-4, ...) và join data các ngày
+            from collections import OrderedDict
+            merged = OrderedDict()
             for t in teachers:
-                s = t["subject"].strip()
-                if s and not s.endswith(":"):
-                    subjects_seen.add(s.upper())
+                key = t["name"].strip().upper()
+                if key not in merged:
+                    merged[key] = {
+                        "tt": t["tt"],
+                        "name": t["name"],
+                        "subjects": [],
+                        "slot_rows": OrderedDict(),  # slot_norm -> merged row values
+                    }
+                m = merged[key]
+                if t["subject"] and t["subject"] not in m["subjects"]:
+                    m["subjects"].append(t["subject"])
+                for r in t["rows"]:
+                    slot_raw = clean_numeric_text(r[3] if len(r) > 3 else "")
+                    slot_key = slot_raw.replace(" ", "") or f"slot{len(m['slot_rows'])}"
+                    if slot_key not in m["slot_rows"]:
+                        m["slot_rows"][slot_key] = {
+                            "slot_text": slot_raw,
+                            "cells": [""] * len(header_row),
+                        }
+                    cells = m["slot_rows"][slot_key]["cells"]
+                    for i in range(len(header_row)):
+                        v = clean_numeric_text(r[i] if i < len(r) else "").replace("\n", " / ")
+                        if not v:
+                            continue
+                        if i < 4:
+                            cells[i] = v
+                        else:
+                            if cells[i]:
+                                if v not in cells[i].split(" / "):
+                                    cells[i] = cells[i] + " / " + v
+                            else:
+                                cells[i] = v
+
+            teachers_merged = list(merged.values())
+
+            subjects_seen = set()
+            for t in teachers_merged:
+                for s in t["subjects"]:
+                    if s and not s.endswith(":"):
+                        subjects_seen.add(s.upper())
             if hasattr(self, "month_subject_menu"):
                 menu_values = ["Tất cả"] + sorted(subjects_seen)
                 try:
@@ -1285,28 +1374,21 @@ class TeacherManagerPro(ctk.CTk):
                     self.month_subject.set("Tất cả")
                     subject_filter = "Tất cả"
 
-            subject_tag_map = {
-                "BC": "subj_BC", "ĐH": "subj_DH", "DH": "subj_DH",
-                "KB": "subj_KB", "ĐN": "subj_DN", "DN": "subj_DN",
-            }
-
             total_rows = 0
             total_teachers = 0
-            for t in teachers:
+            for t in teachers_merged:
                 if search and search not in t["name"].lower():
                     continue
-                if subject_filter != "Tất cả" and t["subject"].upper() != subject_filter.upper():
+                if subject_filter != "Tất cả" and not any(
+                        s.upper() == subject_filter.upper() for s in t["subjects"]):
                     continue
 
                 total_teachers += 1
-                subj_tag = subject_tag_map.get(t["subject"].upper(), "")
+                subjects_str = " / ".join(t["subjects"])
 
                 first_in_block = True
-                for r in t["rows"]:
-                    values = []
-                    for i in range(len(header_row)):
-                        v = r[i] if i < len(r) else ""
-                        values.append(clean_numeric_text(v).replace("\n", " / "))
+                for slot_key, srow in t["slot_rows"].items():
+                    values = list(srow["cells"])
 
                     if hide_empty:
                         has_data = any(values[i].strip() for i in range(4, len(values)))
@@ -1320,16 +1402,13 @@ class TeacherManagerPro(ctk.CTk):
                     else:
                         values[0] = t["tt"]
                         values[1] = t["name"].upper()
-                        values[2] = t["subject"]
+                        values[2] = subjects_str
 
                     tags = []
                     if first_in_block:
                         tags.append("group_top")
-                    else:
-                        if total_rows % 2 == 1:
-                            tags.append("alt")
-                    if subj_tag:
-                        tags.append(subj_tag)
+                    elif total_rows % 2 == 1:
+                        tags.append("alt")
 
                     self.month_tree.insert("", "end", values=values, tags=tuple(tags))
                     total_rows += 1
