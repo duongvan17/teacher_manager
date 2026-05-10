@@ -797,7 +797,7 @@ class TeacherManagerPro(ctk.CTk):
                             width=32, height=32)
         logo.pack(side="left")
         logo.pack_propagate(False)
-        ctk.CTkLabel(logo, text="HD", font=("Arial", 13, "bold"),
+        ctk.CTkLabel(logo, text="MH", font=("Arial", 13, "bold"),
                      text_color="white").pack(expand=True)
         ctk.CTkLabel(brand, text="TSQ QLGV", font=("Arial", 20, "bold"),
                      text_color=COLORS["text"]).pack(side="left", padx=10)
@@ -840,7 +840,7 @@ class TeacherManagerPro(ctk.CTk):
                                       text_color=COLORS["text_dim"],
                                       justify="left", anchor="w")
         self.lbl_time.pack(fill="x")
-        ctk.CTkLabel(footer_full, text="v2.0.0 · TSQ Teacher Manager",
+        ctk.CTkLabel(footer_full, text="v2.0.0 · TSQCB QLGV",
                      font=("Arial", 9),
                      text_color=COLORS["text_dim"], anchor="w"
                      ).pack(fill="x", pady=(4, 0))
@@ -859,7 +859,7 @@ class TeacherManagerPro(ctk.CTk):
                                   corner_radius=8, width=32, height=32)
         logo_mini.pack(pady=(20, 16))
         logo_mini.pack_propagate(False)
-        ctk.CTkLabel(logo_mini, text="HD", font=("Arial", 13, "bold"),
+        ctk.CTkLabel(logo_mini, text="MH", font=("Arial", 13, "bold"),
                      text_color="white").pack(expand=True)
 
         for key, icon, label, cmd_name in self._nav_defs:
@@ -968,7 +968,7 @@ class TeacherManagerPro(ctk.CTk):
                                     corner_radius=0, height=46)
         wrap_header.pack(fill="x", padx=1, pady=(1, 0))
         wrap_header.pack_propagate(False)
-        ctk.CTkLabel(wrap_header, text="  📁  Cây thư mục tài liệu",
+        ctk.CTkLabel(wrap_header, text="  📁  Tài liệu môn học",
                       font=("Arial", 14, "bold"),
                       text_color="white", anchor="w"
                       ).pack(side="left", padx=14, fill="y")
