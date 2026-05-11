@@ -200,17 +200,38 @@ def auto_update_schedule(schedule_file=None):
 
         # 5. Ghi dữ liệu giáo viên
         current_row = 5
-        exclude = ["THỐNG KÊ", "QUÂN SỰ", "QUỐC TẾ", "CÔNG AN", "TỔNG", "CỘNG", "SÁNG", "CHIỀU"]
-        
+        section_exact = {
+            "SÁNG", "CHIỀU", "BUỔI SÁNG", "BUỔI CHIỀU",
+            "TỔNG", "CỘNG", "TỔNG CỘNG", "TỔNG SỐ",
+            "QUÂN SỰ", "QUỐC TẾ", "CÔNG AN",
+            "QUÂN SỰ + QUỐC TẾ", "QUÂN SỰ + QUỐC TẾ:",
+        }
+        section_contains = ("THỐNG KÊ", "GHI CHÚ")
+
+        def _is_section(name):
+            up = str(name).strip().upper()
+            if len(up) < 2:
+                return True
+            if up in section_exact:
+                return True
+            if any(k in up for k in section_contains):
+                return True
+            if up.endswith(":"):
+                return True
+            first = up.split()[0] if up.split() else ""
+            if first in {"TỔNG", "CỘNG"}:
+                return True
+            return False
+
         for teacher in df['HỌ VÀ TÊN'].dropna().unique():
-            if any(key in str(teacher).upper() for key in exclude) or len(str(teacher)) < 2:
+            if _is_section(teacher):
                 continue
 
             teacher_df = df[df['HỌ VÀ TÊN'] == teacher]
             is_first = True
-            
+
             for subject in teacher_df['MÔN HỌC'].unique():
-                if any(key in str(subject).upper() for key in exclude): continue
+                if _is_section(subject): continue
 
                 sub_df = teacher_df[teacher_df['MÔN HỌC'] == subject]
                 slots = {"1 - 2": "", "3 - 4": "", "5 - 6": "", "7 - 8": ""}
@@ -1271,18 +1292,29 @@ class TeacherManagerPro(ctk.CTk):
                 self.month_tree.heading(cid, text=title)
 
             valid_slot_re = _re.compile(r"^\d+\s*-\s*\d+$")
-            exclude_keywords = (
-                "THỐNG KÊ", "TỔNG", "CỘNG", "SÁNG", "CHIỀU",
-                "QUÂN SỰ", "QUỐC TẾ", "CÔNG AN", "GHI CHÚ",
-            )
+            # Tên section (header phân nhóm trong file Excel) - khớp chính xác,
+            # không substring để tránh loại nhầm tên người chứa các chữ này
+            section_exact = {
+                "SÁNG", "CHIỀU", "BUỔI SÁNG", "BUỔI CHIỀU",
+                "TỔNG", "CỘNG", "TỔNG CỘNG", "TỔNG SỐ",
+                "QUÂN SỰ", "QUỐC TẾ", "CÔNG AN",
+                "QUÂN SỰ + QUỐC TẾ", "QUÂN SỰ + QUỐC TẾ:",
+            }
+            section_contains = ("THỐNG KÊ", "GHI CHÚ")
 
             def is_real_teacher(nm):
                 up = str(nm).strip().upper()
                 if len(up) < 2:
                     return False
-                if any(k in up for k in exclude_keywords):
+                if up in section_exact:
+                    return False
+                if any(k in up for k in section_contains):
                     return False
                 if up.endswith(":"):
+                    return False
+                # "TỔNG SỐ TIẾT", "CỘNG ..." - bắt đầu bằng từ khoá section
+                first_word = up.split()[0] if up.split() else ""
+                if first_word in {"TỔNG", "CỘNG"}:
                     return False
                 return True
 
