@@ -15,7 +15,7 @@ from datetime import datetime
 import pdfplumber
 import re
 from openpyxl.styles import Font, Alignment
-from datetime import datetime
+from datetime import datetime, timedelta
 today = datetime.now().strftime("%d/%m/%Y")
 from openpyxl.styles import Font, Alignment, Border, Side
 import pandas as pd
@@ -478,7 +478,8 @@ class TeacherManagerPro(ctk.CTk):
             print("Error: right_frame has not been initialized yet.")
     def hide_all_frames(self):
         for name in ("dashboard_frame", "mgmt_frame", "plan_frame",
-                     "month_frame", "document_frame", "settings_frame"):
+                     "month_frame", "report_frame",
+                     "document_frame", "settings_frame"):
             f = getattr(self, name, None)
             if f is not None:
                 f.pack_forget()
@@ -763,6 +764,7 @@ class TeacherManagerPro(ctk.CTk):
         self.mgmt_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.plan_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.month_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        self.report_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.document_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.settings_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
 
@@ -770,6 +772,7 @@ class TeacherManagerPro(ctk.CTk):
         self.setup_mgmt_ui()
         self.setup_plan_ui()
         self.setup_month_ui()
+        self.setup_report_ui()
         self.setup_document_ui()
         self.setup_settings_ui()
 
@@ -797,6 +800,7 @@ class TeacherManagerPro(ctk.CTk):
             ("mgmt", "👥", "Thông tin giảng viên", "show_mgmt_frame"),
             ("plan", "📅", "Kế hoạch ngày", "show_plan_frame"),
             ("month", "🗓", "Kế hoạch tháng", "show_month_frame"),
+            ("report", "📊", "Báo cáo tuần", "show_report_frame"),
             ("document", "📂", "Môn học", "show_document_frame"),
             ("settings", "⚙", "Cài đặt", "show_settings_frame"),
         ]
@@ -1099,6 +1103,21 @@ class TeacherManagerPro(ctk.CTk):
                                         text_color=COLORS["text_dim"], anchor="e")
         self.month_info.pack(side="right", padx=10, pady=8)
 
+        # Legend (chú thích loại tiết)
+        legend = ctk.CTkFrame(self.month_frame, fg_color="transparent")
+        legend.pack(fill="x", pady=(0, 6))
+        for icon, label in [("⚫", "Lý thuyết"),
+                            ("🔴", "Kiểm tra"),
+                            ("🟢", "Thực hành")]:
+            box = ctk.CTkFrame(legend, fg_color=COLORS["card"],
+                                corner_radius=14,
+                                border_width=1,
+                                border_color=COLORS["border"])
+            box.pack(side="left", padx=(0, 8))
+            ctk.CTkLabel(box, text=f"  {icon} {label}  ",
+                          font=("Arial", 11),
+                          text_color=COLORS["text"]).pack(padx=2, pady=2)
+
         # Tiêu đề như trong file Excel
         excel_title = ctk.CTkFrame(self.month_frame, fg_color="white",
                                     corner_radius=8, border_width=1,
@@ -1171,6 +1190,381 @@ class TeacherManagerPro(ctk.CTk):
         self.set_active_nav("month")
         self.render_month()
 
+    # ===================== TAB BÁO CÁO TUẦN =====================
+
+    def setup_report_ui(self):
+        header = ctk.CTkFrame(self.report_frame, fg_color="transparent")
+        header.pack(fill="x", pady=(0, 10))
+
+        ctk.CTkLabel(header, text="Báo cáo tuần",
+                     font=("Arial", 26, "bold"),
+                     text_color=COLORS["text"]).pack(side="left")
+
+        ctk.CTkButton(header, text="Xuất Excel", width=120, height=36,
+                       fg_color=COLORS["accent"], hover_color="#1D4ED8",
+                       font=("Arial", 13, "bold"),
+                       command=self.export_report_excel
+                       ).pack(side="right")
+
+        ctk.CTkButton(header, text="Làm mới", width=100, height=36,
+                       fg_color="transparent", text_color=COLORS["text"],
+                       border_width=1, border_color=COLORS["border"],
+                       hover_color=COLORS["hover"],
+                       font=("Arial", 13, "bold"),
+                       command=self.render_report
+                       ).pack(side="right", padx=(0, 8))
+
+        toolbar = ctk.CTkFrame(self.report_frame, fg_color=COLORS["card"],
+                                corner_radius=8, border_width=1,
+                                border_color=COLORS["border"])
+        toolbar.pack(fill="x", pady=(0, 10))
+
+        # Chọn tuần
+        today = datetime.now()
+        monday = today - timedelta(days=today.weekday())
+        self._report_monday = monday
+
+        nav = ctk.CTkFrame(toolbar, fg_color="transparent")
+        nav.pack(side="left", padx=10, pady=8)
+
+        ctk.CTkButton(nav, text="‹", width=30, height=30,
+                       fg_color="transparent", text_color=COLORS["text"],
+                       hover_color=COLORS["hover"],
+                       command=lambda: self._shift_week(-1)
+                       ).pack(side="left")
+        self.lbl_report_week = ctk.CTkLabel(nav, text="",
+                                              font=("Arial", 13, "bold"),
+                                              text_color=COLORS["text"], width=240)
+        self.lbl_report_week.pack(side="left", padx=8)
+        ctk.CTkButton(nav, text="›", width=30, height=30,
+                       fg_color="transparent", text_color=COLORS["text"],
+                       hover_color=COLORS["hover"],
+                       command=lambda: self._shift_week(1)
+                       ).pack(side="left")
+        ctk.CTkButton(nav, text="Tuần hiện tại",
+                       width=110, height=30,
+                       fg_color="transparent", text_color=COLORS["accent"],
+                       border_width=1, border_color=COLORS["accent"],
+                       hover_color=COLORS["hover"],
+                       font=("Arial", 11, "bold"),
+                       command=self._reset_week
+                       ).pack(side="left", padx=(10, 0))
+
+        # Stats tổng
+        self.report_stats = ctk.CTkLabel(toolbar, text="",
+                                          font=("Arial", 12),
+                                          text_color=COLORS["text_dim"])
+        self.report_stats.pack(side="right", padx=14, pady=8)
+
+        # Bảng báo cáo
+        container = ctk.CTkFrame(self.report_frame, fg_color=COLORS["card"],
+                                  corner_radius=10, border_width=1,
+                                  border_color=COLORS["border"])
+        container.pack(fill="both", expand=True)
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
+
+        style = ttk.Style()
+        try:
+            style.theme_use("default")
+        except Exception:
+            pass
+        style.configure("Report.Treeview", rowheight=38,
+                        font=("Segoe UI", 12),
+                        background="white", fieldbackground="white",
+                        foreground=COLORS["text"],
+                        borderwidth=1, relief="solid")
+        style.configure("Report.Treeview.Heading",
+                        font=("Segoe UI", 12, "bold"),
+                        background="#1E40AF", foreground="white",
+                        padding=(6, 8))
+
+        self.report_tree = ttk.Treeview(container, style="Report.Treeview",
+                                          show="headings")
+        vsb = ttk.Scrollbar(container, orient="vertical",
+                             command=self.report_tree.yview)
+        hsb = ttk.Scrollbar(container, orient="horizontal",
+                             command=self.report_tree.xview)
+        self.report_tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+
+        self.report_tree.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
+        vsb.grid(row=0, column=1, sticky="ns")
+        hsb.grid(row=1, column=0, sticky="ew")
+
+        self.report_tree.tag_configure("total", background="#DBEAFE",
+                                         font=("Segoe UI", 12, "bold"))
+        self.report_tree.tag_configure("alt", background="#F8FAFC")
+
+    def _shift_week(self, delta):
+        self._report_monday = self._report_monday + timedelta(days=7 * delta)
+        self.render_report()
+
+    def _reset_week(self):
+        today = datetime.now()
+        self._report_monday = today - timedelta(days=today.weekday())
+        self.render_report()
+
+    def show_report_frame(self):
+        self.hide_all_frames()
+        self.report_frame.pack(fill="both", expand=True)
+        self.set_active_nav("report")
+        # Đảm bảo có data từ render_month
+        if not hasattr(self, "_last_teachers_merged"):
+            self.render_month()
+
+        # Auto-jump đến tuần đầu tiên có data nếu tuần hiện tại không có
+        try:
+            self._auto_jump_to_data_week()
+        except Exception:
+            pass
+
+        self.render_report()
+
+    def _auto_jump_to_data_week(self):
+        """Nếu tuần hiện tại không có data, nhảy đến tuần đầu tiên có data."""
+        import re as _re
+        header_row = getattr(self, "_last_header_row", None)
+        if not header_row:
+            return
+        # Lấy tất cả các ngày có trong file
+        dates_in_file = []
+        for h in header_row:
+            m = _re.match(r"(\d{4})-(\d{2})-(\d{2})", str(h))
+            if m:
+                dates_in_file.append(datetime(int(m.group(1)),
+                                              int(m.group(2)),
+                                              int(m.group(3))))
+        if not dates_in_file:
+            return
+
+        cur_mon = self._report_monday
+        cur_sun = cur_mon + timedelta(days=6)
+        has_overlap = any(cur_mon <= d <= cur_sun for d in dates_in_file)
+        if has_overlap:
+            return
+
+        # Nhảy về Monday của tuần chứa ngày đầu tiên trong file
+        first = min(dates_in_file)
+        self._report_monday = first - timedelta(days=first.weekday())
+
+    def render_report(self):
+        if not hasattr(self, "report_tree"):
+            return
+        for item in self.report_tree.get_children():
+            self.report_tree.delete(item)
+
+        monday = self._report_monday
+        sunday = monday + timedelta(days=6)
+        self.lbl_report_week.configure(
+            text=f"Tuần {monday.strftime('%d/%m')} - {sunday.strftime('%d/%m/%Y')}")
+
+        teachers = getattr(self, "_last_teachers_merged", None)
+        header_row = getattr(self, "_last_header_row", None)
+        if not teachers or not header_row:
+            self.report_stats.configure(
+                text="Chưa có dữ liệu. Vào tab Kế hoạch tháng trước.")
+            return
+
+        import re as _re
+
+        # Xác định col index của 7 ngày trong tuần
+        day_to_col = {}  # date_str → col_idx
+        for i, h in enumerate(header_row):
+            m = _re.match(r"(\d{4})-(\d{2})-(\d{2})", str(h))
+            if m:
+                date_str = f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+                day_to_col[date_str] = i
+
+        week_dates = [(monday + timedelta(days=i)) for i in range(7)]
+        week_keys = [d.strftime("%Y-%m-%d") for d in week_dates]
+        cols_for_week = [day_to_col.get(k) for k in week_keys]
+
+        # Setup columns
+        weekday_names = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
+        col_ids = ["c_tt", "c_name", "c_subj"] + [f"d{i}" for i in range(7)] + ["c_lt", "c_kt", "c_th", "c_total"]
+        self.report_tree.configure(columns=col_ids)
+
+        self.report_tree.heading("c_tt", text="TT")
+        self.report_tree.column("c_tt", width=46, anchor="center", stretch=False)
+        self.report_tree.heading("c_name", text="Họ và tên")
+        self.report_tree.column("c_name", width=200, anchor="w", stretch=False)
+        self.report_tree.heading("c_subj", text="Môn")
+        self.report_tree.column("c_subj", width=110, anchor="center", stretch=False)
+
+        for i, (wd, d) in enumerate(zip(weekday_names, week_dates)):
+            cid = f"d{i}"
+            self.report_tree.heading(cid, text=f"{d.strftime('%d/%m')} {wd}")
+            self.report_tree.column(cid, width=110, anchor="center", stretch=False)
+
+        for cid, lbl in [("c_lt", "LT"), ("c_kt", "KT"),
+                          ("c_th", "TH"), ("c_total", "TS")]:
+            self.report_tree.heading(cid, text=lbl)
+            self.report_tree.column(cid, width=58, anchor="center", stretch=False)
+
+        # Aggregate: per teacher, count tiết theo loại cho từng ngày trong tuần
+        sum_lt = sum_kt = sum_th = 0
+        rows_inserted = 0
+
+        for t_idx, t in enumerate(teachers):
+            day_counts = {i: {"LT": 0, "KT": 0, "TH": 0} for i in range(7)}
+
+            for slot_key, srow in t["slot_rows"].items():
+                cells = srow["cells"]
+                for di, col_idx in enumerate(cols_for_week):
+                    if col_idx is None or col_idx >= len(cells):
+                        continue
+                    v = cells[col_idx]
+                    if not v:
+                        continue
+                    # Đếm số entry trong cell (phân cách bởi " / ")
+                    for entry in v.split(" / "):
+                        if entry.startswith("🔴"):
+                            day_counts[di]["KT"] += 1
+                        elif entry.startswith("🟢"):
+                            day_counts[di]["TH"] += 1
+                        else:
+                            day_counts[di]["LT"] += 1
+
+            tot_lt = sum(dc["LT"] for dc in day_counts.values())
+            tot_kt = sum(dc["KT"] for dc in day_counts.values())
+            tot_th = sum(dc["TH"] for dc in day_counts.values())
+            total = tot_lt + tot_kt + tot_th
+
+            if total == 0:
+                continue
+
+            sum_lt += tot_lt; sum_kt += tot_kt; sum_th += tot_th
+
+            values = [
+                t["tt"] or str(rows_inserted + 1),
+                t["name"].upper(),
+                " / ".join(t["subjects"]),
+            ]
+            for di in range(7):
+                dc = day_counts[di]
+                total_day = dc["LT"] + dc["KT"] + dc["TH"]
+                if total_day == 0:
+                    values.append("")
+                else:
+                    parts = []
+                    if dc["LT"]: parts.append(str(dc["LT"]))
+                    if dc["KT"]: parts.append(f"🔴{dc['KT']}")
+                    if dc["TH"]: parts.append(f"🟢{dc['TH']}")
+                    values.append("·".join(parts))
+            values.extend([str(tot_lt), str(tot_kt), str(tot_th), str(total)])
+
+            tags = ["alt"] if rows_inserted % 2 == 1 else []
+            self.report_tree.insert("", "end", values=values, tags=tuple(tags))
+            rows_inserted += 1
+
+        # Total row
+        grand_total = sum_lt + sum_kt + sum_th
+        if rows_inserted > 0:
+            self.report_tree.insert("", "end",
+                values=["", "TỔNG CỘNG", "", "", "", "", "", "", "", "",
+                         str(sum_lt), str(sum_kt), str(sum_th), str(grand_total)],
+                tags=("total",))
+
+        self.report_stats.configure(
+            text=f"{rows_inserted} GV · LT {sum_lt} · KT {sum_kt} · TH {sum_th} · Tổng {grand_total} tiết")
+
+    def export_report_excel(self):
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+
+        if not hasattr(self, "_report_monday"):
+            return
+        monday = self._report_monday
+        sunday = monday + timedelta(days=6)
+
+        path = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",
+            filetypes=[("Excel", "*.xlsx")],
+            initialfile=f"BaoCao_Tuan_{monday.strftime('%Y-%m-%d')}.xlsx")
+        if not path:
+            return
+
+        try:
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Báo cáo tuần"
+
+            thin = Border(left=Side(style='thin'), right=Side(style='thin'),
+                           top=Side(style='thin'), bottom=Side(style='thin'))
+            center = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            header_fill = PatternFill("solid", fgColor="1E40AF")
+            total_fill = PatternFill("solid", fgColor="DBEAFE")
+            header_font = Font(bold=True, color="FFFFFF", size=11)
+
+            # Title
+            ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=14)
+            ws.cell(row=1, column=1, value=f"BÁO CÁO HUẤN LUYỆN TUẦN {monday.strftime('%d/%m')} - {sunday.strftime('%d/%m/%Y')}")
+            ws.cell(row=1, column=1).font = Font(bold=True, size=14)
+            ws.cell(row=1, column=1).alignment = center
+
+            # Headers
+            headers = ["TT", "Họ và tên", "Môn"] + \
+                      [f"T{i+2} {(monday + timedelta(days=i)).strftime('%d/%m')}"
+                       if i < 6 else f"CN {(monday + timedelta(days=i)).strftime('%d/%m')}"
+                       for i in range(7)] + \
+                      ["LT", "KT", "TH", "Tổng số"]
+            for c, h in enumerate(headers, 1):
+                cell = ws.cell(row=3, column=c, value=h)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.border = thin
+                cell.alignment = center
+
+            # Lấy data từ treeview
+            data_rows = []
+            total_row = None
+            for item in self.report_tree.get_children():
+                vals = self.report_tree.item(item)["values"]
+                tags = self.report_tree.item(item)["tags"]
+                if "total" in tags:
+                    total_row = vals
+                else:
+                    data_rows.append(vals)
+
+            r = 4
+            for vals in data_rows:
+                for c, v in enumerate(vals, 1):
+                    cell = ws.cell(row=r, column=c, value=str(v))
+                    cell.border = thin
+                    cell.alignment = center
+                r += 1
+
+            if total_row:
+                for c, v in enumerate(total_row, 1):
+                    cell = ws.cell(row=r, column=c, value=str(v))
+                    cell.border = thin
+                    cell.alignment = center
+                    cell.font = Font(bold=True)
+                    cell.fill = total_fill
+
+            # Column widths
+            ws.column_dimensions['A'].width = 5
+            ws.column_dimensions['B'].width = 26
+            ws.column_dimensions['C'].width = 14
+            for i in range(7):
+                col = chr(ord('D') + i)
+                ws.column_dimensions[col].width = 12
+            for i in range(4):
+                col = chr(ord('K') + i)
+                ws.column_dimensions[col].width = 9
+
+            wb.save(path)
+
+            try:
+                if os.name == "nt":
+                    os.startfile(path)
+                else:
+                    subprocess.call(["open", path])
+            except Exception:
+                pass
+        except Exception as e:
+            print(f"[export_report] Lỗi: {e}")
+
     def open_schedule_file(self):
         path = self.config_data.get("schedule_file", "schedule.xlsx")
         if not os.path.exists(path):
@@ -1183,6 +1577,49 @@ class TeacherManagerPro(ctk.CTk):
                 subprocess.call(["open", path])
         except Exception as e:
             self.month_info.configure(text=f"Lỗi mở file: {e}")
+
+    def _classify_cell_color(self, cell):
+        """Phân loại tiết theo màu font: đỏ=KT, xanh lá/dương=TH, đen=LT."""
+        try:
+            c = cell.font.color if cell.font else None
+            rgb = None
+            if c is not None:
+                if hasattr(c, "type") and c.type == "rgb":
+                    if isinstance(c.rgb, str):
+                        rgb = c.rgb
+                elif isinstance(c.rgb, str):
+                    rgb = c.rgb
+            if rgb and len(rgb) >= 6:
+                hex_rgb = rgb[-6:].upper()
+                r = int(hex_rgb[0:2], 16)
+                g = int(hex_rgb[2:4], 16)
+                b = int(hex_rgb[4:6], 16)
+                # Đỏ trội
+                if r > 150 and r > g + 40 and r > b + 40:
+                    return "KT"
+                # Xanh trội (xanh lá hoặc xanh dương)
+                if (g > 100 and g > r + 30) or (b > 120 and b > r + 30):
+                    return "TH"
+        except Exception:
+            pass
+        return "LT"
+
+    def _build_schedule_color_map(self, path):
+        """Trả về dict {(excel_row, excel_col_1idx): 'LT'|'KT'|'TH'}."""
+        color_map = {}
+        try:
+            from openpyxl import load_workbook
+            wb = load_workbook(path, data_only=True)
+            ws = wb.active
+            for row in ws.iter_rows(min_row=1):
+                for cell in row:
+                    v = cell.value
+                    if v is None or str(v).strip() == "":
+                        continue
+                    color_map[(cell.row, cell.column)] = self._classify_cell_color(cell)
+        except Exception as e:
+            print(f"[color_map] {e}")
+        return color_map
 
     def render_month(self):
         for item in self.month_tree.get_children():
@@ -1210,8 +1647,12 @@ class TeacherManagerPro(ctk.CTk):
             except Exception:
                 pass
 
+            # Map màu (theo Excel coords)
+            color_map = self._build_schedule_color_map(path)
+            self._last_color_map = color_map  # save for tab Báo cáo
+
             raw = pd.read_excel(path, skiprows=3, header=None)
-            raw = raw.dropna(how="all").reset_index(drop=True)
+            # KHÔNG dropna+reset để giữ mapping raw_idx → excel_row (= idx + 4)
             if len(raw) < 2:
                 self.month_info.configure(text="File rỗng")
                 self.month_tree.configure(columns=())
@@ -1219,15 +1660,20 @@ class TeacherManagerPro(ctk.CTk):
 
             header_row = [str(v) if not pd.isna(v) else "" for v in raw.iloc[0]]
             weekday_row = []
-            data_start = 1
+            data_start_offset = 1
             if len(raw) > 1:
                 second = raw.iloc[1]
                 if pd.isna(second.iloc[0]) or str(second.iloc[0]).strip() in ("", "nan"):
                     weekday_row = [str(v) if not pd.isna(v) else "" for v in second]
-                    data_start = 2
+                    data_start_offset = 2
 
-            data = raw.iloc[data_start:].reset_index(drop=True)
-            data.columns = range(len(header_row))
+            # data: giữ Excel row mapping qua excel_rows_list
+            data_raw = raw.iloc[data_start_offset:]
+            data_raw.columns = range(len(header_row))
+            data_raw = data_raw.dropna(how="all")
+            # excel_row của mỗi data row = original_index + 4 (vì skiprows=3)
+            excel_rows_list = [i + 4 for i in data_raw.index]
+            data = data_raw.reset_index(drop=True)
             if data.empty:
                 self.month_info.configure(text="Không có dữ liệu")
                 return
@@ -1354,6 +1800,10 @@ class TeacherManagerPro(ctk.CTk):
             # Gộp các block cùng tên GV: 1 GV dạy nhiều môn → 1 entry,
             # hợp nhất rows theo cặp tiết (1-2, 3-4, ...) và join data các ngày
             from collections import OrderedDict
+
+            # Marker theo loại tiết (đọc từ màu Excel)
+            TYPE_PREFIX = {"KT": "🔴 ", "TH": "🟢 ", "LT": ""}
+
             merged = OrderedDict()
             for t in teachers:
                 key = t["name"].strip().upper()
@@ -1362,12 +1812,14 @@ class TeacherManagerPro(ctk.CTk):
                         "tt": t["tt"],
                         "name": t["name"],
                         "subjects": [],
-                        "slot_rows": OrderedDict(),  # slot_norm -> merged row values
+                        "slot_rows": OrderedDict(),
+                        "type_counts": {"LT": 0, "KT": 0, "TH": 0},
                     }
                 m = merged[key]
                 if t["subject"] and t["subject"] not in m["subjects"]:
                     m["subjects"].append(t["subject"])
                 for r in t["rows"]:
+                    excel_row = excel_rows_list[r.name] if r.name < len(excel_rows_list) else None
                     slot_raw = clean_numeric_text(r[3] if len(r) > 3 else "")
                     slot_key = slot_raw.replace(" ", "") or f"slot{len(m['slot_rows'])}"
                     if slot_key not in m["slot_rows"]:
@@ -1383,13 +1835,21 @@ class TeacherManagerPro(ctk.CTk):
                         if i < 4:
                             cells[i] = v
                         else:
+                            ctype = "LT"
+                            if excel_row is not None and color_map:
+                                ctype = color_map.get((excel_row, i + 1), "LT")
+                            m["type_counts"][ctype] += 1
+                            v_marked = TYPE_PREFIX[ctype] + v
                             if cells[i]:
-                                if v not in cells[i].split(" / "):
-                                    cells[i] = cells[i] + " / " + v
+                                if v_marked not in cells[i].split(" / "):
+                                    cells[i] = cells[i] + " / " + v_marked
                             else:
-                                cells[i] = v
+                                cells[i] = v_marked
 
             teachers_merged = list(merged.values())
+            # Lưu lại cho tab Báo cáo tuần
+            self._last_teachers_merged = teachers_merged
+            self._last_header_row = header_row
 
             subjects_seen = set()
             for t in teachers_merged:
