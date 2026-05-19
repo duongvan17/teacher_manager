@@ -1,1 +1,0 @@
-([('app', '/Users/minhhoangluong/teacher_manager/dist/app', 'EXECUTABLE')],)

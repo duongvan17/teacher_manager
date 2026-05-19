@@ -1,6 +1,7 @@
 @echo off
-REM Build Windows .exe (one-file, no console). Yêu cầu: Python + pip install pyinstaller pillow
-REM Chạy: double-click hoặc gõ build_exe.bat trong cmd.
+REM Build Windows .exe (one-file, no console).
+REM Yeu cau: pip install pyinstaller pillow customtkinter pandas openpyxl pdfplumber python-docx
+REM Chay: double-click hoac go build_exe.bat trong cmd.
 
 echo === Don dep build cu ===
 if exist build rmdir /s /q build
@@ -21,6 +22,8 @@ pyinstaller --noconfirm --onefile --windowed ^
   --hidden-import=pandas ^
   --hidden-import=tkinter ^
   --hidden-import=tkinter.ttk ^
+  --hidden-import=docx ^
+  --collect-data docx ^
   --exclude-module matplotlib ^
   --exclude-module scipy ^
   --exclude-module pytest ^
@@ -35,6 +38,8 @@ if exist schedule.xlsx copy /y schedule.xlsx dist\
 if exist "danh sach k8.xlsx" copy /y "danh sach k8.xlsx" dist\
 if exist "danh sách k8.xlsx" copy /y "danh sách k8.xlsx" dist\
 if exist Document xcopy /e /i /y Document dist\Document
+if exist "BÁO CÁO TUẦN 1.8.docx" copy /y "BÁO CÁO TUẦN 1.8.docx" dist\
+if exist "BÁO CÁO HUẤN LUYỆN NGÀY 22.1.xlsx" copy /y "BÁO CÁO HUẤN LUYỆN NGÀY 22.1.xlsx" dist\
 
 echo.
 echo ===========================================

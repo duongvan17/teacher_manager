@@ -321,6 +321,8 @@ class AppConfig:
         "teacher_file": "danh sách k8.xlsx",
         "schedule_file": "schedule.xlsx",
         "document_folder": "Document",
+        "report_week_template": "BÁO CÁO TUẦN 1.8.docx",
+        "report_day_template": "BÁO CÁO HUẤN LUYỆN NGÀY 22.1.xlsx",
         "user_name": "Giảng viên",
         "user_email": "",
         "auto_update_schedule": True,
@@ -1486,93 +1488,198 @@ class TeacherManagerPro(ctk.CTk):
         self.report_stats.configure(
             text=f"{rows_inserted} GV · LT {sum_lt} · KT {sum_kt} · TH {sum_th} · Tổng {grand_total} tiết")
 
+    # ---- Helper tính số tiết / số GV theo màu ----
+
+    def _period_count(self, slot_text):
+        """'1 - 2' → 2 tiết, '7 - 9' → 3 tiết."""
+        import re as _re
+        m = _re.match(r"(\d+)\s*-\s*(\d+)", str(slot_text))
+        if m:
+            return max(1, int(m.group(2)) - int(m.group(1)) + 1)
+        return 2
+
+    def _entry_type(self, entry):
+        e = entry.strip()
+        if e.startswith("🔴"):
+            return "KT"
+        if e.startswith("🟢"):
+            return "TH"
+        return "LT"
+
+    def _total_teacher_count(self):
+        n = 0
+        for r in getattr(self, "mgmt_data", []) or []:
+            nm = str(r.get('HỌ VÀ TÊN', '')).strip()
+            if nm and nm.lower() != "nan":
+                n += 1
+        return n
+
+    def _compute_week_stats(self, start, end):
+        import re as _re
+        teachers = getattr(self, "_last_teachers_merged", None) or []
+        header_row = getattr(self, "_last_header_row", None) or []
+
+        week_cols = []
+        for i, h in enumerate(header_row):
+            m = _re.match(r"(\d{4})-(\d{2})-(\d{2})", str(h))
+            if m:
+                d = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+                if start.date() <= d.date() <= end.date():
+                    week_cols.append(i)
+
+        lt = th = kt = 0
+        teaching_names = []
+        for t in teachers:
+            taught = False
+            for slot_key, srow in t["slot_rows"].items():
+                periods = self._period_count(srow["slot_text"])
+                for ci in week_cols:
+                    if ci >= len(srow["cells"]):
+                        continue
+                    v = srow["cells"][ci]
+                    if not v.strip():
+                        continue
+                    taught = True
+                    for entry in v.split(" / "):
+                        ty = self._entry_type(entry)
+                        if ty == "KT":
+                            kt += periods
+                        elif ty == "TH":
+                            th += periods
+                        else:
+                            lt += periods
+            if taught:
+                teaching_names.append(t["name"].strip())
+
+        return {
+            "total_teachers": self._total_teacher_count(),
+            "teaching_names": teaching_names,
+            "lt": lt, "th": th, "kt": kt,
+            "total_periods": lt + th + kt,
+        }
+
+    def _compute_day_stats(self, date):
+        import re as _re
+        teachers = getattr(self, "_last_teachers_merged", None) or []
+        header_row = getattr(self, "_last_header_row", None) or []
+
+        target_key = date.strftime("%Y-%m-%d")
+        target_col = None
+        for i, h in enumerate(header_row):
+            m = _re.match(r"(\d{4})-(\d{2})-(\d{2})", str(h))
+            if m and f"{m.group(1)}-{m.group(2)}-{m.group(3)}" == target_key:
+                target_col = i
+                break
+
+        sess = {
+            "morning": {"LT": set(), "TH": set(), "KT": set(), "teach": set()},
+            "afternoon": {"LT": set(), "TH": set(), "KT": set(), "teach": set()},
+        }
+        if target_col is None:
+            return sess, self._total_teacher_count(), False
+
+        for t in teachers:
+            name = t["name"].strip().upper()
+            for slot_key, srow in t["slot_rows"].items():
+                sm = _re.match(r"(\d+)", str(srow["slot_text"]))
+                if not sm:
+                    continue
+                start_p = int(sm.group(1))
+                s = "morning" if start_p <= 6 else "afternoon"
+                if target_col >= len(srow["cells"]):
+                    continue
+                v = srow["cells"][target_col]
+                if not v.strip():
+                    continue
+                sess[s]["teach"].add(name)
+                for entry in v.split(" / "):
+                    sess[s][self._entry_type(entry)].add(name)
+
+        return sess, self._total_teacher_count(), True
+
+    @staticmethod
+    def _docx_set_text(para, new_text):
+        """Đặt text mới cho paragraph, giữ format của run đầu."""
+        if para.runs:
+            para.runs[0].text = new_text
+            for run in para.runs[1:]:
+                run.text = ""
+        else:
+            para.add_run(new_text)
+
     def export_report_excel(self):
-        from openpyxl import Workbook
-        from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+        """Xuất Báo cáo tuần - điền vào template Word."""
+        import re as _re
 
         if not hasattr(self, "_report_start"):
             return
         start = self._report_start
         end = start + timedelta(days=6)
 
+        if start.month != end.month or start.year != end.year:
+            self.report_stats.configure(
+                text="Tuần giao 2 tháng - không xuất báo cáo (yêu cầu khách).",
+                text_color=COLORS["error"])
+            return
+
+        tpl = self.config_data.get("report_week_template",
+                                    "BÁO CÁO TUẦN 1.8.docx")
+        if not os.path.exists(tpl):
+            self.report_stats.configure(
+                text=f"Không tìm thấy mẫu '{tpl}'. Vào Cài đặt chọn lại.",
+                text_color=COLORS["error"])
+            return
+
         path = filedialog.asksaveasfilename(
-            defaultextension=".xlsx",
-            filetypes=[("Excel", "*.xlsx")],
-            initialfile=f"BaoCao_Tuan_{start.strftime('%Y-%m-%d')}.xlsx")
+            defaultextension=".docx",
+            filetypes=[("Word", "*.docx")],
+            initialfile=f"BaoCao_Tuan_{start.strftime('%Y-%m-%d')}.docx")
         if not path:
             return
 
         try:
-            wb = Workbook()
-            ws = wb.active
-            ws.title = "Báo cáo tuần"
+            from docx import Document
+            stats = self._compute_week_stats(start, end)
+            doc = Document(tpl)
 
-            thin = Border(left=Side(style='thin'), right=Side(style='thin'),
-                           top=Side(style='thin'), bottom=Side(style='thin'))
-            center = Alignment(horizontal='center', vertical='center', wrap_text=True)
-            header_fill = PatternFill("solid", fgColor="1E40AF")
-            total_fill = PatternFill("solid", fgColor="DBEAFE")
-            header_font = Font(bold=True, color="FFFFFF", size=11)
+            names = stats["teaching_names"]
+            names_str = ", ".join(names)
 
-            # Title
-            ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=14)
-            ws.cell(row=1, column=1, value=f"BÁO CÁO HUẤN LUYỆN TUẦN {start.strftime('%d/%m')} - {end.strftime('%d/%m/%Y')}")
-            ws.cell(row=1, column=1).font = Font(bold=True, size=14)
-            ws.cell(row=1, column=1).alignment = center
+            for para in doc.paragraphs:
+                txt = para.text.strip()
+                if txt.startswith("Từ ngày"):
+                    self._docx_set_text(
+                        para,
+                        f"Từ ngày {start.day}/{start.month} đến "
+                        f"{end.day}/{end.month} năm {end.year}")
+                elif txt.startswith("- Tổng quân số"):
+                    self._docx_set_text(
+                        para, f"- Tổng quân số: {stats['total_teachers']}")
+                elif txt.startswith("- Quân số tham gia giảng dạy"):
+                    self._docx_set_text(
+                        para,
+                        f"- Quân số tham gia giảng dạy: {len(names)}"
+                        f" ({names_str})")
+                elif txt.startswith("- Tổng số tiết giảng"):
+                    self._docx_set_text(
+                        para,
+                        f"- Tổng số tiết giảng: {stats['total_periods']} tiết")
+                elif _re.match(r"\+\s*Lý thuyết", txt):
+                    self._docx_set_text(
+                        para, f"+ Lý thuyết: {stats['lt']} tiết")
+                elif _re.match(r"\+\s*Thực [Hh]ành", txt):
+                    self._docx_set_text(
+                        para, f"+ Thực Hành: {stats['th']} tiết")
+                elif _re.match(r"\+\s*Thi", txt):
+                    self._docx_set_text(
+                        para, f"+ Thi, Kiểm tra: {stats['kt']} tiết")
 
-            # Headers: Thứ 5 → Thứ 4
-            weekday_labels = ["T5", "T6", "T7", "CN", "T2", "T3", "T4"]
-            headers = ["TT", "Họ và tên", "Môn"] + \
-                      [f"{weekday_labels[i]} {(start + timedelta(days=i)).strftime('%d/%m')}"
-                       for i in range(7)] + \
-                      ["LT", "KT", "TH", "Tổng số"]
-            for c, h in enumerate(headers, 1):
-                cell = ws.cell(row=3, column=c, value=h)
-                cell.font = header_font
-                cell.fill = header_fill
-                cell.border = thin
-                cell.alignment = center
-
-            # Lấy data từ treeview
-            data_rows = []
-            total_row = None
-            for item in self.report_tree.get_children():
-                vals = self.report_tree.item(item)["values"]
-                tags = self.report_tree.item(item)["tags"]
-                if "total" in tags:
-                    total_row = vals
-                else:
-                    data_rows.append(vals)
-
-            r = 4
-            for vals in data_rows:
-                for c, v in enumerate(vals, 1):
-                    cell = ws.cell(row=r, column=c, value=str(v))
-                    cell.border = thin
-                    cell.alignment = center
-                r += 1
-
-            if total_row:
-                for c, v in enumerate(total_row, 1):
-                    cell = ws.cell(row=r, column=c, value=str(v))
-                    cell.border = thin
-                    cell.alignment = center
-                    cell.font = Font(bold=True)
-                    cell.fill = total_fill
-
-            # Column widths
-            ws.column_dimensions['A'].width = 5
-            ws.column_dimensions['B'].width = 26
-            ws.column_dimensions['C'].width = 14
-            for i in range(7):
-                col = chr(ord('D') + i)
-                ws.column_dimensions[col].width = 12
-            for i in range(4):
-                col = chr(ord('K') + i)
-                ws.column_dimensions[col].width = 9
-
-            wb.save(path)
-
+            doc.save(path)
+            self.report_stats.configure(
+                text=f"Đã xuất: {os.path.basename(path)} · "
+                     f"{stats['total_periods']} tiết (LT {stats['lt']} / "
+                     f"TH {stats['th']} / KT {stats['kt']})",
+                text_color=COLORS["success"])
             try:
                 if os.name == "nt":
                     os.startfile(path)
@@ -1581,6 +1688,8 @@ class TeacherManagerPro(ctk.CTk):
             except Exception:
                 pass
         except Exception as e:
+            self.report_stats.configure(
+                text=f"Lỗi xuất báo cáo: {e}", text_color=COLORS["error"])
             print(f"[export_report] Lỗi: {e}")
 
     # ===================== TAB BÁO CÁO NGÀY =====================
@@ -1876,12 +1985,20 @@ class TeacherManagerPro(ctk.CTk):
                               ).pack(side="left", padx=8)
 
     def export_report_day_excel(self):
-        from openpyxl import Workbook
-        from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+        """Xuất Báo cáo ngày - điền số GV theo buổi vào template Excel."""
+        import re as _re
 
         if not hasattr(self, "_report_day"):
             return
         d = self._report_day
+
+        tpl = self.config_data.get("report_day_template",
+                                    "BÁO CÁO HUẤN LUYỆN NGÀY 22.1.xlsx")
+        if not os.path.exists(tpl):
+            self.report_day_stats.configure(
+                text=f"Không tìm thấy mẫu '{tpl}'. Vào Cài đặt chọn lại.",
+                text_color=COLORS["error"])
+            return
 
         path = filedialog.asksaveasfilename(
             defaultextension=".xlsx",
@@ -1891,132 +2008,52 @@ class TeacherManagerPro(ctk.CTk):
             return
 
         try:
-            teachers = getattr(self, "_last_teachers_merged", None)
-            header_row = getattr(self, "_last_header_row", None)
-            if not teachers or not header_row:
-                return
+            from openpyxl import load_workbook
 
-            import re as _re
-            target_key = d.strftime("%Y-%m-%d")
-            target_col = None
-            for i, h in enumerate(header_row):
-                m = _re.match(r"(\d{4})-(\d{2})-(\d{2})", str(h))
-                if m and f"{m.group(1)}-{m.group(2)}-{m.group(3)}" == target_key:
-                    target_col = i
-                    break
-            if target_col is None:
-                return
+            sess, total_teachers, found = self._compute_day_stats(d)
 
-            slot_re = _re.compile(r"(\d+)\s*-\s*(\d+)")
-            morning_teach, morning_not = [], []
-            afternoon_teach, afternoon_not = [], []
-
-            for t in teachers:
-                name = t["name"].strip().upper()
-                m_has = False
-                a_has = False
-                for slot_key, srow in t["slot_rows"].items():
-                    sm = slot_re.match(srow["slot_text"])
-                    if not sm:
-                        continue
-                    val = srow["cells"][target_col] if target_col < len(srow["cells"]) else ""
-                    if not val.strip():
-                        continue
-                    if int(sm.group(1)) <= 6:
-                        m_has = True
-                    else:
-                        a_has = True
-                (morning_teach if m_has else morning_not).append(name)
-                (afternoon_teach if a_has else afternoon_not).append(name)
-
-            wb = Workbook()
+            wb = load_workbook(tpl)
             ws = wb.active
-            ws.title = "Báo cáo ngày"
 
-            thin = Border(left=Side(style='thin'), right=Side(style='thin'),
-                           top=Side(style='thin'), bottom=Side(style='thin'))
-            center = Alignment(horizontal='center', vertical='center', wrap_text=True)
-            left = Alignment(horizontal='left', vertical='center', wrap_text=True)
-            morning_fill = PatternFill("solid", fgColor="F59E0B")
-            afternoon_fill = PatternFill("solid", fgColor="8B5CF6")
-            white_font = Font(bold=True, color="FFFFFF", size=11)
+            # 1. Cập nhật ngày ở ô tiêu đề (tìm cell chứa "NGÀY ... THÁNG")
+            for row in ws.iter_rows(min_row=1, max_row=8):
+                for cell in row:
+                    if cell.value and _re.search(r"NG[ÀA]Y\s+\d+\s+TH[ÁA]NG",
+                                                  str(cell.value), _re.IGNORECASE):
+                        cell.value = (f"NGÀY {d.day:02d} THÁNG "
+                                       f"{d.month:02d} NĂM {d.year}")
+                        break
 
-            weekday_vn = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"]
+            # 2. Điền số liệu. Template: dòng 9 = Sáng, dòng 15 = Chiều,
+            #    khoa K8. Cột: C=Tổng GV, E=LT, F=Thực hành, I=Thi/KT.
+            #    J=Ʃ và Q=Ʃ là công thức tự tính - giữ nguyên.
+            def fill_session(excel_row, s):
+                m = sess[s]
+                ws.cell(row=excel_row, column=3, value=total_teachers)   # C
+                ws.cell(row=excel_row, column=5, value=len(m["LT"]))     # E - Lý thuyết
+                ws.cell(row=excel_row, column=6, value=len(m["TH"]))     # F - Thực hành
+                ws.cell(row=excel_row, column=9, value=len(m["KT"]))     # I - Thi/Kiểm tra
 
-            # Title
-            ws.merge_cells("A1:D1")
-            ws.cell(row=1, column=1,
-                     value=f"BÁO CÁO HUẤN LUYỆN NGÀY {weekday_vn[d.weekday()]}, {d.strftime('%d/%m/%Y')}")
-            ws.cell(row=1, column=1).font = Font(bold=True, size=14)
-            ws.cell(row=1, column=1).alignment = center
-
-            r = 3
-            # Buổi sáng
-            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
-            cell = ws.cell(row=r, column=1,
-                            value=f"BUỔI SÁNG (Tiết 1-6) · {len(morning_teach)} giảng / {len(morning_not)} nghỉ")
-            cell.font = white_font
-            cell.fill = morning_fill
-            cell.alignment = center
-            r += 1
-
-            # Header GV giảng / GV nghỉ
-            ws.cell(row=r, column=1, value="STT").font = Font(bold=True)
-            ws.cell(row=r, column=2, value="GV đi giảng").font = Font(bold=True)
-            ws.cell(row=r, column=3, value="STT").font = Font(bold=True)
-            ws.cell(row=r, column=4, value="GV không giảng").font = Font(bold=True)
-            for c in range(1, 5):
-                ws.cell(row=r, column=c).border = thin
-                ws.cell(row=r, column=c).alignment = center
-            r += 1
-
-            max_morning = max(len(morning_teach), len(morning_not), 1)
-            for i in range(max_morning):
-                ws.cell(row=r, column=1, value=i+1 if i < len(morning_teach) else "")
-                ws.cell(row=r, column=2, value=morning_teach[i] if i < len(morning_teach) else "")
-                ws.cell(row=r, column=3, value=i+1 if i < len(morning_not) else "")
-                ws.cell(row=r, column=4, value=morning_not[i] if i < len(morning_not) else "")
-                for c in range(1, 5):
-                    ws.cell(row=r, column=c).border = thin
-                    ws.cell(row=r, column=c).alignment = left if c in (2, 4) else center
-                r += 1
-
-            r += 1
-            # Buổi chiều
-            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
-            cell = ws.cell(row=r, column=1,
-                            value=f"BUỔI CHIỀU (Tiết 7-9) · {len(afternoon_teach)} giảng / {len(afternoon_not)} nghỉ")
-            cell.font = white_font
-            cell.fill = afternoon_fill
-            cell.alignment = center
-            r += 1
-
-            ws.cell(row=r, column=1, value="STT").font = Font(bold=True)
-            ws.cell(row=r, column=2, value="GV đi giảng").font = Font(bold=True)
-            ws.cell(row=r, column=3, value="STT").font = Font(bold=True)
-            ws.cell(row=r, column=4, value="GV không giảng").font = Font(bold=True)
-            for c in range(1, 5):
-                ws.cell(row=r, column=c).border = thin
-                ws.cell(row=r, column=c).alignment = center
-            r += 1
-
-            max_aft = max(len(afternoon_teach), len(afternoon_not), 1)
-            for i in range(max_aft):
-                ws.cell(row=r, column=1, value=i+1 if i < len(afternoon_teach) else "")
-                ws.cell(row=r, column=2, value=afternoon_teach[i] if i < len(afternoon_teach) else "")
-                ws.cell(row=r, column=3, value=i+1 if i < len(afternoon_not) else "")
-                ws.cell(row=r, column=4, value=afternoon_not[i] if i < len(afternoon_not) else "")
-                for c in range(1, 5):
-                    ws.cell(row=r, column=c).border = thin
-                    ws.cell(row=r, column=c).alignment = left if c in (2, 4) else center
-                r += 1
-
-            ws.column_dimensions['A'].width = 6
-            ws.column_dimensions['B'].width = 32
-            ws.column_dimensions['C'].width = 6
-            ws.column_dimensions['D'].width = 32
+            fill_session(9, "morning")
+            fill_session(15, "afternoon")
 
             wb.save(path)
+
+            if not found:
+                msg = (f"Ngày {d.strftime('%d/%m/%Y')} không có trong "
+                       f"kế hoạch tháng - file xuất với số liệu = 0.")
+                color = COLORS["warning"]
+            else:
+                ms = sess["morning"]
+                af = sess["afternoon"]
+                msg = (f"Đã xuất {os.path.basename(path)} · "
+                       f"Sáng: {len(ms['teach'])} GV "
+                       f"(LT {len(ms['LT'])}/TH {len(ms['TH'])}/KT {len(ms['KT'])}) · "
+                       f"Chiều: {len(af['teach'])} GV "
+                       f"(LT {len(af['LT'])}/TH {len(af['TH'])}/KT {len(af['KT'])})")
+                color = COLORS["success"]
+            self.report_day_stats.configure(text=msg, text_color=color)
+
             try:
                 if os.name == "nt":
                     os.startfile(path)
@@ -2025,6 +2062,8 @@ class TeacherManagerPro(ctk.CTk):
             except Exception:
                 pass
         except Exception as e:
+            self.report_day_stats.configure(
+                text=f"Lỗi xuất báo cáo: {e}", text_color=COLORS["error"])
             print(f"[export_report_day] Lỗi: {e}")
 
     def open_schedule_file(self):
@@ -2675,6 +2714,12 @@ class TeacherManagerPro(ctk.CTk):
                      mode="file", filetypes=(("Excel", "*.xlsx *.xls"),))
         add_file_row(files_section, "Thư mục tài liệu", "document_folder",
                      mode="folder")
+
+        tpl_section = add_section("Mẫu báo cáo")
+        add_file_row(tpl_section, "Mẫu BC tuần (Word)", "report_week_template",
+                     mode="file", filetypes=(("Word", "*.docx"),))
+        add_file_row(tpl_section, "Mẫu BC ngày (Excel)", "report_day_template",
+                     mode="file", filetypes=(("Excel", "*.xlsx *.xls"),))
 
         pref_section = add_section("Hiển thị")
         row = ctk.CTkFrame(pref_section, fg_color="transparent")
